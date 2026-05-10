@@ -7,6 +7,8 @@ import { AppInput } from "@/components/ui/app-input";
 import { Notice } from "@/components/ui/notice";
 import { useAuth } from "@/components/providers/auth-provider";
 import { RoleGate } from "@/components/auth/role-gate";
+import { useLanguage } from "@/components/providers/language-provider";
+import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 export default function AccountPage() {
   return (
@@ -19,6 +21,7 @@ export default function AccountPage() {
 function AccountForm() {
   const router = useRouter();
   const { user, updateProfile } = useAuth();
+  const { t } = useLanguage();
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -58,7 +61,7 @@ function AccountForm() {
       isPublicProfile,
     });
     setLoading(false);
-    setNotice({ type: result.ok ? "success" : "error", message: result.message });
+    setNotice({ type: result.ok ? "success" : "error", message: t(result.messageKey) });
   }
 
   return (
@@ -66,28 +69,31 @@ function AccountForm() {
       <div className="mx-auto max-w-4xl rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-black">Profile Settings</h1>
+            <h1 className="text-2xl font-bold text-black">{t("account.title")}</h1>
             <p className="text-sm text-gray-600">
-              Edit your profile, manage visibility, and keep your presence premium.
+              {t("account.subtitle")}
             </p>
           </div>
-          <AppButton variant="secondary" onClick={() => router.push("/dashboard")}>
-            Back to Dashboard
-          </AppButton>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <AppButton variant="secondary" onClick={() => router.push("/dashboard")}>
+              {t("account.backDashboard")}
+            </AppButton>
+          </div>
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <AppInput label="Avatar URL" value={avatarUrl} onChange={setAvatarUrl} />
-          <AppInput label="Location" value={location} onChange={setLocation} />
+          <AppInput label={t("account.avatarUrl")} value={avatarUrl} onChange={setAvatarUrl} />
+          <AppInput label={t("account.location")} value={location} onChange={setLocation} />
           <AppInput
-            label="Specialties (comma separated)"
+            label={t("account.specialties")}
             value={specialties}
             onChange={setSpecialties}
           />
-          <AppInput label="Pricing / Services" value={pricing} onChange={setPricing} />
+          <AppInput label={t("account.pricing")} value={pricing} onChange={setPricing} />
 
           <label className="block">
-            <span className="mb-2 block text-sm font-medium text-gray-700">Bio / Introduction</span>
+            <span className="mb-2 block text-sm font-medium text-gray-700">{t("account.bio")}</span>
             <textarea
               value={bio}
               onChange={(e) => setBio(e.target.value)}
@@ -102,13 +108,13 @@ function AccountForm() {
               checked={isPublicProfile}
               onChange={(e) => setIsPublicProfile(e.target.checked)}
             />
-            <span className="text-sm text-gray-700">Make my profile public</span>
+            <span className="text-sm text-gray-700">{t("account.profilePublic")}</span>
           </label>
 
           {notice ? <Notice type={notice.type} message={notice.message} /> : null}
 
           <AppButton type="submit" loading={loading}>
-            Save Changes
+            {t("common.saveChanges")}
           </AppButton>
         </form>
       </div>

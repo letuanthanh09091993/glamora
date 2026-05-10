@@ -2,22 +2,25 @@
 
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { RequireRole } from "@/components/auth/require-role";
+import { useLanguage } from "@/components/providers/language-provider";
 
 export default function ArtistLookingModelDashboardPage() {
+  const { t } = useLanguage();
+
   return (
     <RequireRole role="artist_looking_model">
-      <DashboardShell title="Casting Collaboration Center">
+      <DashboardShell title={t("dashboard.castingTitle")}>
         <div className="grid gap-4 md:grid-cols-3">
-          <Card title="Open Casting Requests" value="3 live posts" />
-          <Card title="Saved Models" value="9 potential collaborators" />
-          <Card title="New Conversations" value="2 unread threads" />
+          <Card title={t("dashboard.castingCards.openTitle")} value={t("dashboard.castingCards.openValue")} />
+          <Card title={t("dashboard.castingCards.savedTitle")} value={t("dashboard.castingCards.savedValue")} />
+          <Card title={t("dashboard.castingCards.messagesTitle")} value={t("dashboard.castingCards.messagesValue")} />
         </div>
         <Section
-          title="Casting capabilities"
+          title={t("dashboard.sectionCastingCapabilities")}
           items={[
-            "Post casting requests with style, schedule, and location requirements",
-            "Browse model portfolios and shortlist ideal collaboration matches",
-            "Start direct conversations for campaign and editorial projects",
+            t("dashboard.castingItems.one"),
+            t("dashboard.castingItems.two"),
+            t("dashboard.castingItems.three"),
           ]}
         />
       </DashboardShell>

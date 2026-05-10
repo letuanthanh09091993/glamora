@@ -2,22 +2,25 @@
 
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { RequireRole } from "@/components/auth/require-role";
+import { useLanguage } from "@/components/providers/language-provider";
 
 export default function ModelDashboardPage() {
+  const { t } = useLanguage();
+
   return (
     <RequireRole role="model">
-      <DashboardShell title="Model Profile Hub">
+      <DashboardShell title={t("dashboard.modelTitle")}>
         <div className="grid gap-4 md:grid-cols-3">
-          <Card title="Portfolio" value="14 photos uploaded" />
-          <Card title="Measurements" value="Profile details available" />
-          <Card title="Collaboration Style" value="Open for beauty shoots" />
+          <Card title={t("dashboard.modelCards.portfolioTitle")} value={t("dashboard.modelCards.portfolioValue")} />
+          <Card title={t("dashboard.modelCards.measurementsTitle")} value={t("dashboard.modelCards.measurementsValue")} />
+          <Card title={t("dashboard.modelCards.preferenceTitle")} value={t("dashboard.modelCards.preferenceValue")} />
         </div>
         <Section
-          title="Model capabilities"
+          title={t("dashboard.sectionModelCapabilities")}
           items={[
-            "Maintain polished model profile and visuals",
-            "Edit body measurements, style tags, and collaboration preferences",
-            "Share private/public visibility controls for profile content",
+            t("dashboard.modelItems.one"),
+            t("dashboard.modelItems.two"),
+            t("dashboard.modelItems.three"),
           ]}
         />
       </DashboardShell>

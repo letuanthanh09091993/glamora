@@ -20,16 +20,16 @@ import {
 type AuthContextValue = {
   user: UserAccount | null;
   isReady: boolean;
-  login: (username: string, password: string) => Promise<{ ok: boolean; message: string }>;
+  login: (username: string, password: string) => Promise<{ ok: boolean; messageKey: string }>;
   signUp: (payload: {
     username: string;
     password: string;
     phoneNumber: string;
     role: UserAccount["role"];
-  }) => Promise<{ ok: boolean; message: string }>;
+  }) => Promise<{ ok: boolean; messageKey: string }>;
   logout: () => void;
   refreshUser: () => void;
-  updateProfile: (partial: Partial<UserAccount>) => Promise<{ ok: boolean; message: string }>;
+  updateProfile: (partial: Partial<UserAccount>) => Promise<{ ok: boolean; messageKey: string }>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);

@@ -36,7 +36,7 @@ async function hashPassword(value: string) {
 
 export async function signUp(
   payload: SignupPayload,
-): Promise<{ ok: boolean; message: string }> {
+): Promise<{ ok: boolean; messageKey: string }> {
   const users = getUsers();
   const normalizedUsername = payload.username.trim().toLowerCase();
   const normalizedPhone = sanitizePhone(payload.phoneNumber);
@@ -44,12 +44,12 @@ export async function signUp(
   const usernameExists = users.some(
     (u) => u.username.trim().toLowerCase() === normalizedUsername,
   );
-  if (usernameExists) return { ok: false, message: "Username already exists." };
+  if (usernameExists) return { ok: false, messageKey: "authMessages.usernameExists" };
 
   const phoneExists = users.some(
     (u) => sanitizePhone(u.phoneNumber) === normalizedPhone,
   );
-  if (phoneExists) return { ok: false, message: "Phone number already exists." };
+  if (phoneExists) return { ok: false, messageKey: "authMessages.phoneExists" };
 
   const passwordHash = await hashPassword(payload.password);
   const nextUser: UserAccount = {
@@ -68,7 +68,7 @@ export async function signUp(
   users.push(nextUser);
   saveUsers(users);
   window.localStorage.setItem(SESSION_KEY, nextUser.id);
-  return { ok: true, message: "Account created successfully." };
+  return { ok: true, messageKey: "authMessages.accountCreated" };
 }
 
 export async function login(username: string, password: string) {
@@ -78,10 +78,10 @@ export async function login(username: string, password: string) {
     (u) => u.username.trim().toLowerCase() === username.trim().toLowerCase(),
   );
   if (!found || found.password !== passwordHash) {
-    return { ok: false, message: "Invalid username or password." };
+    return { ok: false, messageKey: "authMessages.invalidCredential" };
   }
   window.localStorage.setItem(SESSION_KEY, found.id);
-  return { ok: true, message: "Login successful." };
+  return { ok: true, messageKey: "authMessages.loginSuccess" };
 }
 
 export function logout() {
@@ -97,17 +97,17 @@ export function getCurrentUser(): UserAccount | null {
 
 export function updateCurrentUser(
   partial: Partial<UserAccount>,
-): { ok: boolean; message: string } {
+): { ok: boolean; messageKey: string } {
   const users = getUsers();
   const currentId = window.localStorage.getItem(SESSION_KEY);
-  if (!currentId) return { ok: false, message: "No authenticated user." };
+  if (!currentId) return { ok: false, messageKey: "authMessages.noAuthenticatedUser" };
 
   const index = users.findIndex((u) => u.id === currentId);
-  if (index === -1) return { ok: false, message: "User not found." };
+  if (index === -1) return { ok: false, messageKey: "authMessages.userNotFound" };
 
   users[index] = { ...users[index], ...partial };
   saveUsers(users);
-  return { ok: true, message: "Profile updated successfully." };
+  return { ok: true, messageKey: "authMessages.profileUpdated" };
 }
 
 export function getUserByUsername(username: string): UserAccount | null {

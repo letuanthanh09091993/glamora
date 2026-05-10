@@ -2,22 +2,25 @@
 
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { RequireRole } from "@/components/auth/require-role";
+import { useLanguage } from "@/components/providers/language-provider";
 
 export default function CustomerDashboardPage() {
+  const { t } = useLanguage();
+
   return (
     <RequireRole role="customer">
-      <DashboardShell title="Customer Experience">
+      <DashboardShell title={t("dashboard.customerTitle")}>
         <div className="grid gap-4 md:grid-cols-3">
-          <Card title="Favorite Artists" value="12 saved" />
-          <Card title="Booking History" value="4 completed bookings" />
-          <Card title="Upcoming Appointments" value="1 scheduled this week" />
+          <Card title={t("dashboard.customerCards.favoritesTitle")} value={t("dashboard.customerCards.favoritesValue")} />
+          <Card title={t("dashboard.customerCards.historyTitle")} value={t("dashboard.customerCards.historyValue")} />
+          <Card title={t("dashboard.customerCards.upcomingTitle")} value={t("dashboard.customerCards.upcomingValue")} />
         </div>
         <Section
-          title="Quick actions"
+          title={t("dashboard.sectionQuickActions")}
           items={[
-            "Discover premium makeup artists by style and location",
-            "Save favorites for faster re-booking",
-            "Manage booking timeline and order details",
+            t("dashboard.customerItems.one"),
+            t("dashboard.customerItems.two"),
+            t("dashboard.customerItems.three"),
           ]}
         />
       </DashboardShell>

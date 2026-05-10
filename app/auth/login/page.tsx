@@ -8,10 +8,12 @@ import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
 import { Notice } from "@/components/ui/notice";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useLanguage } from "@/components/providers/language-provider";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, refreshUser } = useAuth();
+  const { t } = useLanguage();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,7 @@ export default function LoginPage() {
     setNotice(null);
     const result = await login(username, password);
     setLoading(false);
-    setNotice({ type: result.ok ? "success" : "error", message: result.message });
+    setNotice({ type: result.ok ? "success" : "error", message: t(result.messageKey) });
 
     if (result.ok) {
       refreshUser();
@@ -35,33 +37,33 @@ export default function LoginPage() {
 
   return (
     <AuthShell
-      title="Welcome Back"
-      subtitle="Log in and continue managing your beauty marketplace journey."
-      footerText="New to Glamora?"
+      title={t("login.title")}
+      subtitle={t("login.subtitle")}
+      footerText={t("login.footerText")}
       footerLink="/auth/signup"
-      footerLabel="Create account"
+      footerLabel={t("login.footerLinkLabel")}
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <AppInput
-          label="Username"
+          label={t("login.username")}
           value={username}
           onChange={setUsername}
-          placeholder="yourname"
+          placeholder={t("login.usernamePlaceholder")}
         />
         <AppInput
-          label="Password"
+          label={t("login.password")}
           type="password"
           value={password}
           onChange={setPassword}
-          placeholder="Your secure password"
+          placeholder={t("login.passwordPlaceholder")}
         />
         {notice ? <Notice type={notice.type} message={notice.message} /> : null}
         <div className="flex items-center justify-between gap-3">
           <Link href="/" className="text-sm text-gray-500 hover:text-black">
-            Back to Home
+            {t("common.backHome")}
           </Link>
           <AppButton type="submit" loading={loading}>
-            Login
+            {t("login.submit")}
           </AppButton>
         </div>
       </form>

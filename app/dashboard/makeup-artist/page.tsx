@@ -2,23 +2,26 @@
 
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { RequireRole } from "@/components/auth/require-role";
+import { useLanguage } from "@/components/providers/language-provider";
 
 export default function MakeupArtistDashboardPage() {
+  const { t } = useLanguage();
+
   return (
     <RequireRole role="makeup_artist">
-      <DashboardShell title="Makeup Artist Studio">
+      <DashboardShell title={t("dashboard.artistTitle")}>
         <div className="grid gap-4 md:grid-cols-4">
-          <Card title="Profile Completion" value="82%" />
-          <Card title="Portfolio Assets" value="24 images · 3 videos" />
-          <Card title="Average Rating" value="4.9 ★" />
-          <Card title="Active Services" value="6 packages" />
+          <Card title={t("dashboard.artistCards.completionTitle")} value={t("dashboard.artistCards.completionValue")} />
+          <Card title={t("dashboard.artistCards.assetsTitle")} value={t("dashboard.artistCards.assetsValue")} />
+          <Card title={t("dashboard.artistCards.ratingTitle")} value={t("dashboard.artistCards.ratingValue")} />
+          <Card title={t("dashboard.artistCards.servicesTitle")} value={t("dashboard.artistCards.servicesValue")} />
         </div>
         <Section
-          title="Artist capabilities"
+          title={t("dashboard.sectionArtistCapabilities")}
           items={[
-            "Manage avatar, portfolio photos, and short-form beauty reels",
-            "Update makeup specialties, pricing, service details, and location",
-            "Display public ratings and client reviews in profile page",
+            t("dashboard.artistItems.one"),
+            t("dashboard.artistItems.two"),
+            t("dashboard.artistItems.three"),
           ]}
         />
       </DashboardShell>

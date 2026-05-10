@@ -1,4 +1,7 @@
+"use client";
+
 import { ReactNode } from "react";
+import { useLanguage } from "@/components/providers/language-provider";
 
 type AppButtonProps = {
   children: ReactNode;
@@ -17,6 +20,8 @@ export function AppButton({
   onClick,
   className = "",
 }: AppButtonProps) {
+  const { t } = useLanguage();
+
   return (
     <button
       type={type}
@@ -28,7 +33,7 @@ export function AppButton({
           : "border border-black/20 bg-white text-black hover:bg-black hover:text-white"
       } ${className}`}
     >
-      {loading ? "Please wait..." : children}
+      {loading ? t("common.pleaseWait") : children}
     </button>
   );
 }

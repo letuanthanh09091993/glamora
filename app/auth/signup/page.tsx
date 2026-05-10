@@ -11,6 +11,8 @@ import { Notice } from "@/components/ui/notice";
 import { UserRole } from "@/lib/auth-types";
 import { ROLE_META } from "@/lib/role-meta";
 import { useAuth } from "@/components/providers/auth-provider";
+import { useLanguage } from "@/components/providers/language-provider";
+import { getRoleDescription, getRoleLabel } from "@/lib/i18n";
 
 type FormState = {
   username: string;
@@ -22,6 +24,7 @@ type FormState = {
 export default function SignUpPage() {
   const router = useRouter();
   const { signUp } = useAuth();
+  const { t, language } = useLanguage();
   const [form, setForm] = useState<FormState>({
     username: "",
     password: "",
@@ -36,22 +39,22 @@ export default function SignUpPage() {
   const errors = useMemo(() => {
     return {
       username:
-        form.username.trim().length < 3 ? "Username must be at least 3 characters." : "",
+        form.username.trim().length < 3 ? t("signup.usernameMin") : "",
       password:
-        form.password.trim().length < 6 ? "Password must be at least 6 characters." : "",
+        form.password.trim().length < 6 ? t("signup.passwordMin") : "",
       phoneNumber:
         !/^[0-9+\s-]{9,15}$/.test(form.phoneNumber.trim())
-          ? "Phone number format is invalid."
+          ? t("signup.phoneInvalid")
           : "",
     };
-  }, [form]);
+  }, [form, t]);
 
   const hasError = Boolean(errors.username || errors.password || errors.phoneNumber);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (hasError) {
-      setNotice({ type: "error", message: "Please fix validation errors first." });
+      setNotice({ type: "error", message: t("signup.fixErrors") });
       return;
     }
 
@@ -59,7 +62,10 @@ export default function SignUpPage() {
     setNotice(null);
     const result = await signUp(form);
     setLoading(false);
-    setNotice({ type: result.ok ? "success" : "error", message: result.message });
+    setNotice({
+      type: result.ok ? "success" : "error",
+      message: t(result.messageKey),
+    });
 
     if (result.ok) {
       setTimeout(() => router.push(ROLE_META[form.role].dashboardPath), 600);
@@ -68,45 +74,45 @@ export default function SignUpPage() {
 
   return (
     <AuthShell
-      title="Create Your Account"
-      subtitle="Start your Glamora journey with a tailored role-based experience."
-      footerText="Already have an account?"
+      title={t("signup.title")}
+      subtitle={t("signup.subtitle")}
+      footerText={t("signup.footerText")}
       footerLink="/auth/login"
-      footerLabel="Login"
+      footerLabel={t("signup.footerLinkLabel")}
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <AppInput
-          label="Username"
+          label={t("signup.username")}
           value={form.username}
           onChange={(value) => setForm((prev) => ({ ...prev, username: value }))}
-          placeholder="yourname"
+          placeholder={t("signup.usernamePlaceholder")}
           error={errors.username}
         />
         <AppInput
-          label="Password"
+          label={t("signup.password")}
           type="password"
           value={form.password}
           onChange={(value) => setForm((prev) => ({ ...prev, password: value }))}
-          placeholder="At least 6 characters"
+          placeholder={t("signup.passwordPlaceholder")}
           error={errors.password}
         />
         <AppInput
-          label="Phone Number"
+          label={t("signup.phoneNumber")}
           value={form.phoneNumber}
           onChange={(value) => setForm((prev) => ({ ...prev, phoneNumber: value }))}
-          placeholder="+84..."
+          placeholder={t("signup.phonePlaceholder")}
           error={errors.phoneNumber}
         />
 
         <div>
-          <p className="mb-2 text-sm font-medium text-gray-700">Select your role</p>
+          <p className="mb-2 text-sm font-medium text-gray-700">{t("signup.selectRole")}</p>
           <div className="grid gap-3">
             {(Object.keys(ROLE_META) as UserRole[]).map((role) => (
               <RoleCard
                 key={role}
                 role={role}
-                title={ROLE_META[role].label}
-                description={ROLE_META[role].description}
+                title={getRoleLabel(language, role)}
+                description={getRoleDescription(language, role)}
                 active={form.role === role}
                 onSelect={(selected) => setForm((prev) => ({ ...prev, role: selected }))}
               />
@@ -118,10 +124,10 @@ export default function SignUpPage() {
 
         <div className="flex items-center justify-between gap-3">
           <Link href="/" className="text-sm text-gray-500 hover:text-black">
-            Back to Home
+            {t("common.backHome")}
           </Link>
           <AppButton type="submit" loading={loading}>
-            Create Account
+            {t("signup.submit")}
           </AppButton>
         </div>
       </form>
