@@ -7,16 +7,16 @@ export function LanguageSwitcher() {
   const { language, setLanguage } = useLanguage();
 
   return (
-    <div className="inline-flex rounded-full border border-black/10 bg-white/90 p-1 shadow-sm">
+    <div className="inline-flex rounded-full border border-black/10 bg-white/90 p-0.5 shadow-sm">
       {LANGUAGES.map((lang) => (
         <button
           key={lang}
           type="button"
           onClick={() => setLanguage(lang)}
           aria-pressed={language === lang}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold tracking-wide transition-all duration-300 sm:px-4 sm:py-2 sm:text-sm ${
+          className={`min-h-0 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-tight tracking-wide transition-all duration-300 sm:px-2.5 sm:py-1 sm:text-xs ${
             language === lang
-              ? "bg-black text-white shadow-md"
+              ? "bg-black text-white shadow-sm"
               : "text-gray-600 hover:bg-gray-100 hover:text-black"
           }`}
         >

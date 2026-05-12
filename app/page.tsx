@@ -11,13 +11,6 @@ import { BeautyMagazineSection } from "@/components/home/beauty-magazine-section
 import { AppRoutes } from "@/lib/app-routes";
 import { FEATURED_DEMO_SLUGS } from "@/lib/featured-demo-profiles";
 import { MODEL_DEMO_SLUGS } from "@/lib/model-demo-profiles";
-import {
-  distanceKmToAccount,
-  formatApproxDistanceKm,
-  sortByDistanceKm,
-} from "@/lib/geo-distance";
-import type { Language } from "@/lib/i18n";
-import { profileMatchesNearbyHints } from "@/lib/nearby-match";
 
 function publicProfileMatchesQuery(account: UserAccount, query: string) {
   const q = query.trim().toLowerCase();
@@ -37,109 +30,27 @@ function publicProfileMatchesQuery(account: UserAccount, query: string) {
   return parts.includes(q);
 }
 
-function ApproxDistanceBadge({ km, language }: { km: number | null; language: Language }) {
-  if (km == null || !Number.isFinite(km)) return null;
-  return (
-    <span className="whitespace-nowrap text-xs font-medium tabular-nums text-gray-500">
-      {formatApproxDistanceKm(km, language)}
-    </span>
-  );
-}
-
 export default function HomePage() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const { user, logout, isReady } = useAuth();
   const [artists, setArtists] = useState<UserAccount[]>([]);
   const [models, setModels] = useState<UserAccount[]>([]);
   const [search, setSearch] = useState("");
-
-  type NearbyFilterState =
-    | { status: "off" }
-    | { status: "loading" }
-    | { status: "ready"; hints: string[]; label: string; viewerLat: number; viewerLon: number }
-    | { status: "error"; messageKey: string };
-
-  const [nearbyFilter, setNearbyFilter] = useState<NearbyFilterState>({ status: "off" });
 
   useEffect(() => {
     setArtists(listPublicMakeupArtists());
     setModels(listPublicModels());
   }, []);
 
-  const nearbyHintsForFilter =
-    nearbyFilter.status === "ready" && nearbyFilter.hints.length > 0 ? nearbyFilter.hints : null;
+  const filtered = useMemo(
+    () => artists.filter((a) => publicProfileMatchesQuery(a, search)),
+    [artists, search],
+  );
 
-  const viewerLat = nearbyFilter.status === "ready" ? nearbyFilter.viewerLat : null;
-  const viewerLon = nearbyFilter.status === "ready" ? nearbyFilter.viewerLon : null;
-
-  const filtered = useMemo(() => {
-    let list = artists.filter((a) => publicProfileMatchesQuery(a, search));
-    if (nearbyHintsForFilter) {
-      list = list.filter((a) => profileMatchesNearbyHints(a.location, nearbyHintsForFilter));
-    }
-    if (viewerLat != null && viewerLon != null) {
-      list = sortByDistanceKm(list, { lat: viewerLat, lon: viewerLon });
-    }
-    return list;
-  }, [artists, search, nearbyHintsForFilter, viewerLat, viewerLon]);
-
-  const filteredModels = useMemo(() => {
-    let list = models.filter((m) => publicProfileMatchesQuery(m, search));
-    if (nearbyHintsForFilter) {
-      list = list.filter((m) => profileMatchesNearbyHints(m.location, nearbyHintsForFilter));
-    }
-    if (viewerLat != null && viewerLon != null) {
-      list = sortByDistanceKm(list, { lat: viewerLat, lon: viewerLon });
-    }
-    return list;
-  }, [models, search, nearbyHintsForFilter, viewerLat, viewerLon]);
-
-  async function requestNearbyFilter() {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setNearbyFilter({ status: "error", messageKey: "home.nearbyUnavailable" });
-      return;
-    }
-    setNearbyFilter({ status: "loading" });
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: false,
-          timeout: 15000,
-          maximumAge: 120_000,
-        });
-      });
-      const res = await fetch(`/api/geocode/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
-      const data = (await res.json()) as { hints?: string[]; label?: string };
-      if (!res.ok || !Array.isArray(data.hints)) {
-        setNearbyFilter({ status: "error", messageKey: "home.nearbyError" });
-        return;
-      }
-      const hints = data.hints;
-      const label = (typeof data.label === "string" && data.label.trim()) ? data.label.trim() : hints[0] || "";
-      if (!hints.length) {
-        setNearbyFilter({ status: "error", messageKey: "home.nearbyError" });
-        return;
-      }
-      setNearbyFilter({
-        status: "ready",
-        hints,
-        label,
-        viewerLat: pos.coords.latitude,
-        viewerLon: pos.coords.longitude,
-      });
-    } catch (err: unknown) {
-      const geo = err as GeolocationPositionError;
-      if (geo?.code === 1) {
-        setNearbyFilter({ status: "error", messageKey: "home.nearbyDenied" });
-        return;
-      }
-      setNearbyFilter({ status: "error", messageKey: "home.nearbyError" });
-    }
-  }
-
-  function clearNearbyFilter() {
-    setNearbyFilter({ status: "off" });
-  }
+  const filteredModels = useMemo(
+    () => models.filter((m) => publicProfileMatchesQuery(m, search)),
+    [models, search],
+  );
 
   const rest = filtered.slice(3);
 
@@ -147,9 +58,8 @@ export default function HomePage() {
     const top = filtered.slice(0, 3);
     if (top.length > 0) return { mode: "real" as const, artists: top };
     if (search.trim()) return { mode: "none" as const };
-    if (nearbyHintsForFilter) return { mode: "nearby-empty" as const };
     return { mode: "demo" as const };
-  }, [filtered, search, nearbyHintsForFilter]);
+  }, [filtered, search]);
 
   const demoGradients = [
     "bg-gradient-to-br from-pink-200 via-rose-100 to-pink-50",
@@ -169,9 +79,8 @@ export default function HomePage() {
     const top = filteredModels.slice(0, 3);
     if (top.length > 0) return { mode: "real" as const, models: top };
     if (search.trim()) return { mode: "none" as const };
-    if (nearbyHintsForFilter) return { mode: "nearby-empty" as const };
     return { mode: "demo" as const };
-  }, [filteredModels, search, nearbyHintsForFilter]);
+  }, [filteredModels, search]);
 
   return (
     <main className="min-h-screen bg-[#fdf8f6] text-[#2b2b2b]">
@@ -282,34 +191,6 @@ export default function HomePage() {
               autoComplete="off"
             />
           </label>
-          <div className="mt-4 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            <button
-              type="button"
-              onClick={requestNearbyFilter}
-              disabled={nearbyFilter.status === "loading"}
-              className="inline-flex min-h-[44px] items-center justify-center rounded-full border border-black/15 bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {nearbyFilter.status === "loading" ? t("home.nearbyLoading") : t("home.nearbyButton")}
-            </button>
-            {nearbyFilter.status === "ready" ? (
-              <span className="inline-flex items-center gap-2 self-center rounded-full bg-pink-50 px-4 py-2 text-xs font-medium text-gray-800 ring-1 ring-pink-100 sm:self-auto">
-                <span className="text-pink-700">
-                  {t("home.nearbyActivePrefix")}: {nearbyFilter.label}
-                </span>
-                <button
-                  type="button"
-                  onClick={clearNearbyFilter}
-                  className="rounded-full px-2 py-0.5 text-lg leading-none text-gray-500 hover:bg-black/5 hover:text-black"
-                  aria-label={t("home.nearbyClearAria")}
-                >
-                  ×
-                </button>
-              </span>
-            ) : null}
-          </div>
-          {nearbyFilter.status === "error" ? (
-            <p className="mt-3 text-center text-sm text-red-600 sm:text-left">{t(nearbyFilter.messageKey)}</p>
-          ) : null}
         </div>
       </section>
 
@@ -385,23 +266,7 @@ export default function HomePage() {
                   <div className="flex flex-1 flex-col p-5 sm:p-6">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-lg font-semibold sm:text-xl">{artist.username}</h3>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <ApproxDistanceBadge
-                          km={
-                            nearbyFilter.status === "ready"
-                              ? distanceKmToAccount(
-                                  {
-                                    lat: nearbyFilter.viewerLat,
-                                    lon: nearbyFilter.viewerLon,
-                                  },
-                                  artist,
-                                )
-                              : null
-                          }
-                          language={language}
-                        />
-                        <span className="text-sm text-pink-500">★ {artist.rating?.toFixed(1) ?? "—"}</span>
-                      </div>
+                      <span className="shrink-0 text-sm text-pink-500">★ {artist.rating?.toFixed(1) ?? "—"}</span>
                     </div>
 
                     <p className="mt-2 line-clamp-2 flex-1 text-sm text-gray-500">
@@ -462,10 +327,6 @@ export default function HomePage() {
                 </article>
               ))}
             </div>
-          ) : featuredShowcase.mode === "nearby-empty" ? (
-            <div className="rounded-[28px] border border-dashed border-black/15 bg-white/80 px-6 py-14 text-center text-gray-600">
-              <p className="text-base font-medium text-black">{t("home.nearbyEmptyArtists")}</p>
-            </div>
           ) : (
             <div className="rounded-[28px] border border-dashed border-black/15 bg-white/80 px-6 py-14 text-center text-gray-600">
               <p className="text-base font-medium text-black">{t("home.featuredNoSearchResults")}</p>
@@ -499,23 +360,7 @@ export default function HomePage() {
                     }
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate font-semibold text-black">{artist.username}</p>
-                      <ApproxDistanceBadge
-                        km={
-                          nearbyFilter.status === "ready"
-                            ? distanceKmToAccount(
-                                {
-                                  lat: nearbyFilter.viewerLat,
-                                  lon: nearbyFilter.viewerLon,
-                                },
-                                artist,
-                              )
-                            : null
-                        }
-                        language={language}
-                      />
-                    </div>
+                    <p className="truncate font-semibold text-black">{artist.username}</p>
                     <p className="truncate text-xs text-gray-500">
                       {(artist.specialties ?? []).join(" · ") || t("home.artistServices")}
                     </p>
@@ -576,25 +421,9 @@ export default function HomePage() {
                   <div className="flex flex-1 flex-col p-5 sm:p-6">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="text-lg font-semibold sm:text-xl">{model.username}</h3>
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <ApproxDistanceBadge
-                          km={
-                            nearbyFilter.status === "ready"
-                              ? distanceKmToAccount(
-                                  {
-                                    lat: nearbyFilter.viewerLat,
-                                    lon: nearbyFilter.viewerLon,
-                                  },
-                                  model,
-                                )
-                              : null
-                          }
-                          language={language}
-                        />
-                        {model.rating != null ? (
-                          <span className="text-sm text-pink-500">★ {model.rating.toFixed(1)}</span>
-                        ) : null}
-                      </div>
+                      {model.rating != null ? (
+                        <span className="shrink-0 text-sm text-pink-500">★ {model.rating.toFixed(1)}</span>
+                      ) : null}
                     </div>
                     <p className="mt-2 line-clamp-2 flex-1 text-sm text-gray-500">
                       {model.collaborationPreferences || model.bio || t("home.modelCardFallback")}
@@ -645,10 +474,6 @@ export default function HomePage() {
                 </article>
               ))}
             </div>
-          ) : modelsShowcase.mode === "nearby-empty" ? (
-            <div className="rounded-[28px] border border-dashed border-black/15 bg-white/80 px-6 py-14 text-center text-gray-600">
-              <p className="text-base font-medium text-black">{t("home.nearbyEmptyModels")}</p>
-            </div>
           ) : (
             <div className="rounded-[28px] border border-dashed border-black/15 bg-white/80 px-6 py-14 text-center text-gray-600">
               <p className="text-base font-medium text-black">{t("home.modelsNoMatch")}</p>
@@ -681,23 +506,7 @@ export default function HomePage() {
                     }
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate font-semibold text-black">{model.username}</p>
-                      <ApproxDistanceBadge
-                        km={
-                          nearbyFilter.status === "ready"
-                            ? distanceKmToAccount(
-                                {
-                                  lat: nearbyFilter.viewerLat,
-                                  lon: nearbyFilter.viewerLon,
-                                },
-                                model,
-                              )
-                            : null
-                        }
-                        language={language}
-                      />
-                    </div>
+                    <p className="truncate font-semibold text-black">{model.username}</p>
                     <p className="truncate text-xs text-gray-500">
                       {model.collaborationPreferences || model.bio || t("home.modelCardFallback")}
                     </p>
