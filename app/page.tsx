@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/components/providers/language-provider";
+import { AppLogoLink } from "@/components/ui/app-logo-link";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { listPublicMakeupArtists, listPublicModels } from "@/lib/auth-storage";
 import { UserAccount } from "@/lib/auth-types";
@@ -55,12 +56,7 @@ export default function HomePage() {
     <main className="min-h-screen bg-[#fdf8f6] text-[#2b2b2b]">
       <header className="sticky top-0 z-20 border-b border-black/5 bg-[#fdf8f6]/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 sm:px-6 sm:py-4">
-          <Link
-            href="/"
-            className="shrink-0 text-xl font-semibold tracking-wide transition hover:opacity-80"
-          >
-            {t("common.appName")}
-          </Link>
+          <AppLogoLink />
 
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-2 gap-y-2 sm:flex-initial sm:gap-x-3">
             {isReady && user ? (
@@ -73,19 +69,7 @@ export default function HomePage() {
                     href="/dashboard"
                     className="shrink-0 rounded-full px-3 py-2 text-sm text-gray-700 transition hover:bg-black/5 sm:px-4"
                   >
-                    {t("home.navDashboard")}
-                  </Link>
-                  <Link
-                    href="/account"
-                    className="shrink-0 rounded-full px-3 py-2 text-sm text-gray-700 transition hover:bg-black/5 sm:px-4"
-                  >
-                    {t("common.account")}
-                  </Link>
-                  <Link
-                    href={`/profile/${user.username}`}
-                    className="hidden shrink-0 rounded-full px-3 py-2 text-sm text-gray-700 transition hover:bg-black/5 md:inline-flex sm:px-4"
-                  >
-                    {t("common.publicProfile")}
+                    {t("home.navPersonalHome")}
                   </Link>
                   <button
                     type="button"

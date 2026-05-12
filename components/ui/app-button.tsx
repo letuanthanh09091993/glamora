@@ -8,6 +8,7 @@ type AppButtonProps = {
   type?: "button" | "submit";
   variant?: "primary" | "secondary";
   loading?: boolean;
+  disabled?: boolean;
   onClick?: () => void;
   className?: string;
 };
@@ -17,6 +18,7 @@ export function AppButton({
   type = "button",
   variant = "primary",
   loading,
+  disabled,
   onClick,
   className = "",
 }: AppButtonProps) {
@@ -26,7 +28,7 @@ export function AppButton({
     <button
       type={type}
       onClick={onClick}
-      disabled={loading}
+      disabled={loading || disabled}
       className={`rounded-full px-6 py-3 text-sm font-semibold transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60 ${
         variant === "primary"
           ? "bg-black text-white hover:-translate-y-0.5 hover:opacity-90"

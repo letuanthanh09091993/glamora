@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { listPublicModels } from "@/lib/auth-storage";
 import { UserAccount } from "@/lib/auth-types";
 import { AppRoutes } from "@/lib/app-routes";
+import { AppLogoLink } from "@/components/ui/app-logo-link";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
 import { useLanguage } from "@/components/providers/language-provider";
 
@@ -20,9 +21,7 @@ export default function ModelsIndexPage() {
     <main className="min-h-screen bg-[#fdf8f6] text-[#2b2b2b]">
       <header className="border-b border-black/5 bg-[#fdf8f6]/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <Link href={AppRoutes.home} className="shrink-0 text-xl font-semibold tracking-wide transition hover:opacity-80">
-            {t("common.appName")}
-          </Link>
+          <AppLogoLink href={AppRoutes.home} />
           <div className="flex shrink-0 items-center">
             <span className="sr-only">{t("home.languageHint")}</span>
             <LanguageSwitcher />
