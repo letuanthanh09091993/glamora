@@ -6,7 +6,6 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { AppButton } from "@/components/ui/app-button";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getRoleLabel } from "@/lib/i18n";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 export function DashboardShell({ title, children }: { title: string; children: ReactNode }) {
   const { user, logout } = useAuth();
@@ -23,7 +22,25 @@ export function DashboardShell({ title, children }: { title: string; children: R
             <h1 className="text-xl font-semibold text-black">{title}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <LanguageSwitcher />
+            <Link className="rounded-full px-4 py-2 text-sm hover:bg-black/5" href="/">
+              {t("home.navExplore")}
+            </Link>
+            {user.role === "customer" ? (
+              <Link
+                className="rounded-full px-4 py-2 text-sm hover:bg-black/5"
+                href="/dashboard/customer/bookings"
+              >
+                {t("booking.navLink")}
+              </Link>
+            ) : null}
+            {user.role === "makeup_artist" ? (
+              <Link
+                className="rounded-full px-4 py-2 text-sm hover:bg-black/5"
+                href="/dashboard/makeup-artist/bookings"
+              >
+                {t("booking.navLink")}
+              </Link>
+            ) : null}
             <Link className="rounded-full px-4 py-2 text-sm hover:bg-black/5" href="/account">
               {t("common.account")}
             </Link>

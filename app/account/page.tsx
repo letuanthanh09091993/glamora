@@ -8,7 +8,6 @@ import { Notice } from "@/components/ui/notice";
 import { useAuth } from "@/components/providers/auth-provider";
 import { RoleGate } from "@/components/auth/role-gate";
 import { useLanguage } from "@/components/providers/language-provider";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 export default function AccountPage() {
   return (
@@ -74,8 +73,10 @@ function AccountForm() {
               {t("account.subtitle")}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <LanguageSwitcher />
+          <div className="flex flex-wrap items-center gap-2">
+            <AppButton variant="secondary" onClick={() => router.push("/")}>
+              {t("home.navExplore")}
+            </AppButton>
             <AppButton variant="secondary" onClick={() => router.push("/dashboard")}>
               {t("account.backDashboard")}
             </AppButton>

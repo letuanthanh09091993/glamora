@@ -68,7 +68,7 @@ export default function SignUpPage() {
     });
 
     if (result.ok) {
-      setTimeout(() => router.push(ROLE_META[form.role].dashboardPath), 600);
+      setTimeout(() => router.push("/auth/login?registered=1"), 600);
     }
   }
 

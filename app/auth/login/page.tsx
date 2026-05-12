@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AppButton } from "@/components/ui/app-button";
@@ -21,6 +21,14 @@ export default function LoginPage() {
     null,
   );
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("registered") === "1") {
+      setNotice({ type: "success", message: t("authMessages.accountCreated") });
+      window.history.replaceState({}, "", "/auth/login");
+    }
+  }, [t]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -31,7 +39,10 @@ export default function LoginPage() {
 
     if (result.ok) {
       refreshUser();
-      setTimeout(() => router.push("/dashboard"), 500);
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
+      const destination = next && next.startsWith("/") ? next : "/";
+      setTimeout(() => router.push(destination), 500);
     }
   }
 

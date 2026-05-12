@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 import { useLanguage } from "@/components/providers/language-provider";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 export function AuthShell({
   title,
@@ -39,7 +38,12 @@ export function AuthShell({
           </div>
           <div className="p-6 sm:p-10">
             <div className="mb-6 flex justify-end">
-              <LanguageSwitcher />
+              <Link
+                href="/"
+                className="text-sm font-medium text-gray-500 transition hover:text-black"
+              >
+                {t("common.backHome")}
+              </Link>
             </div>
             <h2 className="text-3xl font-bold text-black">{title}</h2>
             <p className="mt-2 text-sm text-gray-600">{subtitle}</p>

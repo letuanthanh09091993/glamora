@@ -1,19 +1,20 @@
 import { UserRole } from "@/lib/auth-types";
+import { AppRoutes } from "@/lib/app-routes";
 
 export const ROLE_META: Record<
   UserRole,
   { dashboardPath: string }
 > = {
   customer: {
-    dashboardPath: "/dashboard/customer",
+    dashboardPath: AppRoutes.dashboardCustomer,
   },
   makeup_artist: {
-    dashboardPath: "/dashboard/makeup-artist",
+    dashboardPath: AppRoutes.dashboardMakeupArtist,
   },
   model: {
-    dashboardPath: "/dashboard/model",
+    dashboardPath: AppRoutes.dashboardModel,
   },
   artist_looking_model: {
-    dashboardPath: "/dashboard/artist-looking-model",
+    dashboardPath: AppRoutes.dashboardArtistLookingModel,
   },
 };

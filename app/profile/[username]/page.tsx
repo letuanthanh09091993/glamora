@@ -4,15 +4,16 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppButton } from "@/components/ui/app-button";
+import { useAuth } from "@/components/providers/auth-provider";
 import { getUserByUsername } from "@/lib/auth-storage";
 import { UserAccount } from "@/lib/auth-types";
 import { getRoleLabel } from "@/lib/i18n";
 import { useLanguage } from "@/components/providers/language-provider";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
 
 export default function PublicProfilePage() {
   const params = useParams<{ username: string }>();
   const [profile, setProfile] = useState<UserAccount | null>(null);
+  const { user } = useAuth();
   const { t, language } = useLanguage();
 
   useEffect(() => {
@@ -56,11 +57,21 @@ export default function PublicProfilePage() {
             <h1 className="text-3xl font-bold text-black">{profile.username}</h1>
             <p className="text-sm text-gray-600">{getRoleLabel(language, profile.role)}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <LanguageSwitcher />
-            <Link href="/auth/login">
-              <AppButton variant="secondary">{t("profile.loginToConnect")}</AppButton>
-            </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {user?.role === "customer" && profile.role === "makeup_artist" && profile.isPublicProfile ? (
+              <Link href={`/book/${profile.username}`}>
+                <AppButton>{t("profile.bookSession")}</AppButton>
+              </Link>
+            ) : null}
+            {!user ? (
+              <Link href="/auth/login">
+                <AppButton variant="secondary">{t("profile.loginToConnect")}</AppButton>
+              </Link>
+            ) : (
+              <Link href="/dashboard">
+                <AppButton variant="secondary">{t("account.backDashboard")}</AppButton>
+              </Link>
+            )}
           </div>
         </div>
 

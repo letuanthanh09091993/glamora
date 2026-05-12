@@ -5,7 +5,7 @@ import { SignupPayload, UserAccount } from "@/lib/auth-types";
 const USERS_KEY = "glamora_users_v1";
 const SESSION_KEY = "glamora_session_user_id";
 
-function getUsers(): UserAccount[] {
+export function getUsers(): UserAccount[] {
   if (typeof window === "undefined") return [];
   const raw = window.localStorage.getItem(USERS_KEY);
   if (!raw) return [];
@@ -17,7 +17,7 @@ function getUsers(): UserAccount[] {
   }
 }
 
-function saveUsers(users: UserAccount[]) {
+export function saveUsers(users: UserAccount[]) {
   window.localStorage.setItem(USERS_KEY, JSON.stringify(users));
 }
 
@@ -67,7 +67,6 @@ export async function signUp(
 
   users.push(nextUser);
   saveUsers(users);
-  window.localStorage.setItem(SESSION_KEY, nextUser.id);
   return { ok: true, messageKey: "authMessages.accountCreated" };
 }
 
@@ -114,4 +113,8 @@ export function getUserByUsername(username: string): UserAccount | null {
   const users = getUsers();
   const normalized = username.trim().toLowerCase();
   return users.find((u) => u.username.trim().toLowerCase() === normalized) ?? null;
+}
+
+export function listPublicMakeupArtists(): UserAccount[] {
+  return getUsers().filter((u) => u.role === "makeup_artist" && u.isPublicProfile);
 }
