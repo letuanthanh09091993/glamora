@@ -118,3 +118,7 @@ export function getUserByUsername(username: string): UserAccount | null {
 export function listPublicMakeupArtists(): UserAccount[] {
   return getUsers().filter((u) => u.role === "makeup_artist" && u.isPublicProfile);
 }
+
+export function listPublicModels(): UserAccount[] {
+  return getUsers().filter((u) => u.role === "model" && u.isPublicProfile);
+}

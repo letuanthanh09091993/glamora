@@ -48,6 +48,23 @@ function AccountForm() {
     e.preventDefault();
     setLoading(true);
     setNotice(null);
+
+    const trimmedLocation = location.trim();
+    let latitude: number | undefined;
+    let longitude: number | undefined;
+    if (trimmedLocation) {
+      try {
+        const geoRes = await fetch(`/api/geocode/forward?q=${encodeURIComponent(trimmedLocation)}`);
+        const geo = (await geoRes.json()) as { lat?: unknown; lng?: unknown };
+        if (geoRes.ok && typeof geo.lat === "number" && typeof geo.lng === "number") {
+          latitude = geo.lat;
+          longitude = geo.lng;
+        }
+      } catch {
+        /* leave coords cleared when geocoding fails */
+      }
+    }
+
     const result = await updateProfile({
       bio,
       location,
@@ -58,6 +75,8 @@ function AccountForm() {
         .map((item) => item.trim())
         .filter(Boolean),
       isPublicProfile,
+      latitude,
+      longitude,
     });
     setLoading(false);
     setNotice({ type: result.ok ? "success" : "error", message: t(result.messageKey) });
@@ -85,7 +104,10 @@ function AccountForm() {
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <AppInput label={t("account.avatarUrl")} value={avatarUrl} onChange={setAvatarUrl} />
-          <AppInput label={t("account.location")} value={location} onChange={setLocation} />
+          <div>
+            <AppInput label={t("account.location")} value={location} onChange={setLocation} />
+            <p className="mt-1.5 text-xs text-gray-500">{t("account.locationDistanceHint")}</p>
+          </div>
           <AppInput
             label={t("account.specialties")}
             value={specialties}

@@ -15,6 +15,8 @@ export type UserAccount = {
   role: UserRole;
   avatarUrl?: string;
   bio?: string;
+  latitude?: number;
+  longitude?: number;
   location?: string;
   specialties?: string[];
   pricing?: string;
