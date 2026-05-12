@@ -29,10 +29,10 @@ const translations = {
     },
     home: {
       marketplace: "Sàn Kết Nối Làm Đẹp Glamora",
-      titleLine1: "Tìm Chuyên Viên",
-      titleLine2: "Trang Điểm Phù Hợp Nhất",
+      titleLine1: "Nơi Vẻ Đẹp Gặp Gỡ Sự Tinh Tế",
+      titleLine2: "",
       description:
-        "Kết nối với các chuyên viên trang điểm tài năng gần bạn cho cưới hỏi, sự kiện, chụp ảnh và làm đẹp hằng ngày.",
+        "Nâng Tầm Kết Nối Trong Thế Giới Làm Đẹp. Trải nghiệm booking makeup cao cấp với thông tin minh bạch, kết nối an toàn và những chuyên gia làm đẹp hàng đầu.",
       heroPrimary: "Khám phá chuyên viên",
       heroSecondary: "Trở thành chuyên viên trang điểm",
       featuredArtists: "Chuyên Viên Nổi Bật",
@@ -101,7 +101,7 @@ const translations = {
       feedEyebrow: "Bảng tin làm đẹp",
       languageHint: "Chọn ngôn ngữ — lưu trên toàn bộ ứng dụng.",
       articlesEyebrow: "Đọc có nguồn — Glamora",
-      articlesTitle: "Tài liệu làm đẹp — đổi chủ đề mỗi ngày (giờ Việt Nam)",
+      articlesTitle: "Góc Chia Sẻ",
       articlesSubtitle:
         "Chúng tôi chỉ gợi ý chủ đề và dẫn link tới trang chính thống của cơ quan y tế/cấp phép (ví dụ NIH, CDC, FDA) hoặc tổ chức giáo dục uy tín được nêu rõ trong từng mục.",
       articlesSpotlight: "Chủ đề nổi bật hôm nay",
@@ -172,6 +172,7 @@ const translations = {
     },
     dashboard: {
       eyebrow: "Bảng điều khiển Glamora",
+      navHome: "Trang Chủ",
       signedInAs: "Đăng nhập với tư cách",
       customerTitle: "Trải nghiệm khách hàng",
       artistTitle: "Không gian chuyên viên trang điểm",
@@ -404,10 +405,10 @@ const translations = {
     },
     home: {
       marketplace: "Glamora Beauty Marketplace",
-      titleLine1: "Find Your Perfect",
-      titleLine2: "Makeup Artist",
+      titleLine1: "Where Beauty Meets Sophistication",
+      titleLine2: "",
       description:
-        "Connect with talented makeup artists near you for weddings, events, photoshoots, and everyday beauty.",
+        "Elevate connections in the world of beauty. Enjoy premium makeup booking with transparent details, secure connections, and leading beauty professionals.",
       heroPrimary: "Explore Artists",
       heroSecondary: "Become an Artist",
       featuredArtists: "Featured Artists",
@@ -474,7 +475,7 @@ const translations = {
       feedEyebrow: "Beauty feed",
       languageHint: "Choose your language — saved across the app.",
       articlesEyebrow: "Sourced reading — Glamora",
-      articlesTitle: "Authoritative beauty & safety topics — daily rotation (VN time)",
+      articlesTitle: "Sharing corner",
       articlesSubtitle:
         "We publish topic cards plus outbound links only: health agencies or regulators explicitly named (such as NIH, CDC, FDA) and, where cited, reputable educational nonprofits referenced in-line.",
       articlesSpotlight: "Today’s spotlight",
@@ -545,6 +546,7 @@ const translations = {
     },
     dashboard: {
       eyebrow: "Glamora Dashboard",
+      navHome: "Home",
       signedInAs: "Signed in as",
       customerTitle: "Customer Experience",
       artistTitle: "Makeup Artist Studio",

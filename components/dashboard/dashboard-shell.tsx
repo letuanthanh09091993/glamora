@@ -23,7 +23,7 @@ export function DashboardShell({ title, children }: { title: string; children: R
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link className="rounded-full px-4 py-2 text-sm hover:bg-black/5" href="/">
-              {t("home.navExplore")}
+              {t("dashboard.navHome")}
             </Link>
             {user.role === "customer" ? (
               <Link
@@ -41,12 +41,6 @@ export function DashboardShell({ title, children }: { title: string; children: R
                 {t("booking.navLink")}
               </Link>
             ) : null}
-            <Link className="rounded-full px-4 py-2 text-sm hover:bg-black/5" href="/account">
-              {t("common.account")}
-            </Link>
-            <Link className="rounded-full px-4 py-2 text-sm hover:bg-black/5" href={`/profile/${user.username}`}>
-              {t("common.publicProfile")}
-            </Link>
             <AppButton variant="secondary" onClick={logout}>
               {t("common.logout")}
             </AppButton>

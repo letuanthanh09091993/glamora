@@ -12,54 +12,24 @@ import { AppRoutes } from "@/lib/app-routes";
 import { FEATURED_DEMO_SLUGS } from "@/lib/featured-demo-profiles";
 import { MODEL_DEMO_SLUGS } from "@/lib/model-demo-profiles";
 
-function publicProfileMatchesQuery(account: UserAccount, query: string) {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  const parts = [
-    account.username,
-    account.location,
-    account.bio,
-    account.pricing,
-    account.measurements,
-    account.collaborationPreferences,
-    ...(account.specialties ?? []),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return parts.includes(q);
-}
-
 export default function HomePage() {
   const { t } = useLanguage();
   const { user, logout, isReady } = useAuth();
   const [artists, setArtists] = useState<UserAccount[]>([]);
   const [models, setModels] = useState<UserAccount[]>([]);
-  const [search, setSearch] = useState("");
 
   useEffect(() => {
     setArtists(listPublicMakeupArtists());
     setModels(listPublicModels());
   }, []);
 
-  const filtered = useMemo(
-    () => artists.filter((a) => publicProfileMatchesQuery(a, search)),
-    [artists, search],
-  );
-
-  const filteredModels = useMemo(
-    () => models.filter((m) => publicProfileMatchesQuery(m, search)),
-    [models, search],
-  );
-
-  const rest = filtered.slice(3);
+  const rest = artists.slice(3);
 
   const featuredShowcase = useMemo(() => {
-    const top = filtered.slice(0, 3);
+    const top = artists.slice(0, 3);
     if (top.length > 0) return { mode: "real" as const, artists: top };
-    if (search.trim()) return { mode: "none" as const };
     return { mode: "demo" as const };
-  }, [filtered, search]);
+  }, [artists]);
 
   const demoGradients = [
     "bg-gradient-to-br from-pink-200 via-rose-100 to-pink-50",
@@ -73,79 +43,80 @@ export default function HomePage() {
     "bg-gradient-to-br from-fuchsia-100 via-rose-50 to-violet-50",
   ];
 
-  const modelsRest = filteredModels.slice(3);
+  const modelsRest = models.slice(3);
 
   const modelsShowcase = useMemo(() => {
-    const top = filteredModels.slice(0, 3);
+    const top = models.slice(0, 3);
     if (top.length > 0) return { mode: "real" as const, models: top };
-    if (search.trim()) return { mode: "none" as const };
     return { mode: "demo" as const };
-  }, [filteredModels, search]);
+  }, [models]);
 
   return (
     <main className="min-h-screen bg-[#fdf8f6] text-[#2b2b2b]">
       <header className="sticky top-0 z-20 border-b border-black/5 bg-[#fdf8f6]/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <Link href="/" className="text-xl font-semibold tracking-wide transition hover:opacity-80">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 sm:px-6 sm:py-4">
+          <Link
+            href="/"
+            className="shrink-0 text-xl font-semibold tracking-wide transition hover:opacity-80"
+          >
             {t("common.appName")}
           </Link>
 
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <div className="flex flex-col items-end gap-1">
-              <p className="hidden text-[10px] font-medium uppercase tracking-wider text-gray-400 sm:block">
-                {t("home.languageHint")}
-              </p>
-              <span className="sr-only">{t("home.languageHint")}</span>
-              <LanguageSwitcher />
-            </div>
-
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-2 gap-y-2 sm:flex-initial sm:gap-x-3">
             {isReady && user ? (
               <>
-                <p className="max-w-[10rem] truncate text-right text-xs text-gray-500 sm:max-w-none">
+                <p className="w-full max-w-full truncate text-right text-xs text-gray-500 sm:w-auto sm:max-w-[11rem] md:max-w-none">
                   <span className="font-semibold text-black">{t("home.welcomeBack")}</span>, {user.username}
                 </p>
-                <Link
-                  href="/dashboard"
-                  className="rounded-full px-4 py-2 text-sm text-gray-700 transition hover:bg-black/5"
-                >
-                  {t("home.navDashboard")}
-                </Link>
-                <Link
-                  href="/account"
-                  className="rounded-full px-4 py-2 text-sm text-gray-700 transition hover:bg-black/5"
-                >
-                  {t("common.account")}
-                </Link>
-                <Link
-                  href={`/profile/${user.username}`}
-                  className="hidden rounded-full px-4 py-2 text-sm text-gray-700 transition hover:bg-black/5 md:inline-flex"
-                >
-                  {t("common.publicProfile")}
-                </Link>
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="rounded-full border border-black/15 px-4 py-2 text-sm font-medium text-gray-800 transition hover:bg-black hover:text-white"
-                >
-                  {t("common.logout")}
-                </button>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Link
+                    href="/dashboard"
+                    className="shrink-0 rounded-full px-3 py-2 text-sm text-gray-700 transition hover:bg-black/5 sm:px-4"
+                  >
+                    {t("home.navDashboard")}
+                  </Link>
+                  <Link
+                    href="/account"
+                    className="shrink-0 rounded-full px-3 py-2 text-sm text-gray-700 transition hover:bg-black/5 sm:px-4"
+                  >
+                    {t("common.account")}
+                  </Link>
+                  <Link
+                    href={`/profile/${user.username}`}
+                    className="hidden shrink-0 rounded-full px-3 py-2 text-sm text-gray-700 transition hover:bg-black/5 md:inline-flex sm:px-4"
+                  >
+                    {t("common.publicProfile")}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="shrink-0 rounded-full border border-black/15 px-3 py-2 text-sm font-medium text-gray-800 transition hover:bg-black hover:text-white sm:px-4"
+                  >
+                    {t("common.logout")}
+                  </button>
+                </div>
               </>
             ) : (
-              <>
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <Link
                   href="/auth/login"
-                  className="rounded-full px-4 py-2 text-sm text-gray-600 transition hover:bg-black/5"
+                  className="shrink-0 rounded-full px-3 py-2 text-sm text-gray-600 transition hover:bg-black/5 sm:px-4"
                 >
                   {t("common.login")}
                 </Link>
                 <Link
                   href="/auth/signup"
-                  className="rounded-full border border-black/20 px-4 py-2 text-sm transition hover:bg-black hover:text-white"
+                  className="shrink-0 rounded-full border border-black/20 px-3 py-2 text-sm transition hover:bg-black hover:text-white sm:px-4"
                 >
                   {t("common.createAccount")}
                 </Link>
-              </>
+              </div>
             )}
+
+            <div className="flex shrink-0 items-center border-l border-black/10 pl-2 sm:pl-3">
+              <span className="sr-only">{t("home.languageHint")}</span>
+              <LanguageSwitcher />
+            </div>
           </div>
         </div>
       </header>
@@ -165,32 +136,17 @@ export default function HomePage() {
 
           <h1 className="text-3xl font-bold leading-tight sm:text-5xl md:text-7xl">
             {t("home.titleLine1")}
-            <br />
-            {t("home.titleLine2")}
+            {t("home.titleLine2").trim() ? (
+              <>
+                <br />
+                {t("home.titleLine2")}
+              </>
+            ) : null}
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl text-sm text-gray-600 sm:text-base md:text-lg">
             {t("home.description")}
           </p>
-        </div>
-      </section>
-
-      {/* SEARCH */}
-      <section className="px-4 pb-10 sm:px-6">
-        <div className="mx-auto max-w-2xl">
-          <label className="block">
-            <span className="mb-2 block text-center text-sm font-medium text-gray-700 sm:text-left">
-              {t("home.searchLabel")}
-            </span>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("home.searchPlaceholder")}
-              className="w-full rounded-full border border-black/10 bg-white px-5 py-3.5 text-sm shadow-sm outline-none ring-pink-100 transition placeholder:text-gray-400 focus:border-pink-300 focus:ring-4"
-              autoComplete="off"
-            />
-          </label>
         </div>
       </section>
 
@@ -208,7 +164,7 @@ export default function HomePage() {
               {t("home.discoveryArtistsCta")}
             </Link>
             <Link
-              href="#explore-models"
+              href={AppRoutes.modelsIndex}
               className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:opacity-90"
             >
               {t("home.discoveryModelsCta")}
@@ -231,7 +187,7 @@ export default function HomePage() {
                 {t("home.exploreSubtitle")}
               </Link>
             </div>
-            {filtered.length > 3 ? (
+            {artists.length > 3 ? (
               <a
                 href="#explore-more"
                 className="self-start text-sm font-medium text-pink-600 underline-offset-4 hover:underline sm:self-auto"
@@ -294,7 +250,7 @@ export default function HomePage() {
                 </article>
               ))}
             </div>
-          ) : featuredShowcase.mode === "demo" ? (
+          ) : (
             <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-3">
               {[1, 2, 3].map((n, i) => (
                 <article
@@ -326,10 +282,6 @@ export default function HomePage() {
                   </div>
                 </article>
               ))}
-            </div>
-          ) : (
-            <div className="rounded-[28px] border border-dashed border-black/15 bg-white/80 px-6 py-14 text-center text-gray-600">
-              <p className="text-base font-medium text-black">{t("home.featuredNoSearchResults")}</p>
             </div>
           )}
         </div>
@@ -387,7 +339,7 @@ export default function HomePage() {
                 {t("home.modelsSubtitle")}
               </Link>
             </div>
-            {filteredModels.length > 3 ? (
+            {models.length > 3 ? (
               <a
                 href="#explore-models-more"
                 className="self-start text-sm font-medium text-pink-600 underline-offset-4 hover:underline sm:self-auto"
@@ -443,7 +395,7 @@ export default function HomePage() {
                 </article>
               ))}
             </div>
-          ) : modelsShowcase.mode === "demo" ? (
+          ) : (
             <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-3">
               {[1, 2, 3].map((n, i) => (
                 <article
@@ -473,10 +425,6 @@ export default function HomePage() {
                   </div>
                 </article>
               ))}
-            </div>
-          ) : (
-            <div className="rounded-[28px] border border-dashed border-black/15 bg-white/80 px-6 py-14 text-center text-gray-600">
-              <p className="text-base font-medium text-black">{t("home.modelsNoMatch")}</p>
             </div>
           )}
         </div>

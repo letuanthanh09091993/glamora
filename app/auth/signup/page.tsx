@@ -9,7 +9,7 @@ import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
 import { Notice } from "@/components/ui/notice";
 import { UserRole } from "@/lib/auth-types";
-import { ROLE_META } from "@/lib/role-meta";
+import { SIGNUP_ROLES } from "@/lib/role-meta";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getRoleDescription, getRoleLabel } from "@/lib/i18n";
@@ -107,7 +107,7 @@ export default function SignUpPage() {
         <div>
           <p className="mb-2 text-sm font-medium text-gray-700">{t("signup.selectRole")}</p>
           <div className="grid gap-3">
-            {(Object.keys(ROLE_META) as UserRole[]).map((role) => (
+            {SIGNUP_ROLES.map((role) => (
               <RoleCard
                 key={role}
                 role={role}
