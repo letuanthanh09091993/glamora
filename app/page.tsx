@@ -14,6 +14,7 @@ import { FEATURED_DEMO_SLUGS } from "@/lib/featured-demo-profiles";
 import { MODEL_DEMO_SLUGS } from "@/lib/model-demo-profiles";
 import { getHomeRoleShellTheme } from "@/lib/home-role-theme";
 import { HomeBookingBell } from "@/components/home/home-booking-bell";
+import { HomeArtistPendingSection } from "@/components/home/home-artist-pending-section";
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -174,38 +175,41 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FEATURED */}
-      <section className="px-4 pb-12 sm:px-6" id="explore">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-pink-400">{t("home.feedEyebrow")}</p>
-              <h2 className="mt-1 text-2xl font-semibold sm:text-3xl">{t("home.featuredArtists")}</h2>
-              <Link
-                href={
-                  isReady && user
-                    ? AppRoutes.artistsIndex
-                    : `${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.artistsIndex)}`
-                }
-                title={!isReady || !user ? t("home.discoveryArtistsLoginHint") : undefined}
-                className="mt-1 inline-block max-w-xl text-sm font-medium text-pink-600 underline-offset-4 hover:underline"
-              >
-                {t("home.exploreSubtitle")}
-              </Link>
+      {/* FEATURED — makeup artists see pending bookings; others see featured specialists */}
+      {isReady && user?.role === "makeup_artist" ? (
+        <HomeArtistPendingSection />
+      ) : (
+        <section className="px-4 pb-12 sm:px-6" id="explore">
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-pink-400">{t("home.feedEyebrow")}</p>
+                <h2 className="mt-1 text-2xl font-semibold sm:text-3xl">{t("home.featuredArtists")}</h2>
+                <Link
+                  href={
+                    isReady && user
+                      ? AppRoutes.artistsIndex
+                      : `${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.artistsIndex)}`
+                  }
+                  title={!isReady || !user ? t("home.discoveryArtistsLoginHint") : undefined}
+                  className="mt-1 inline-block max-w-xl text-sm font-medium text-pink-600 underline-offset-4 hover:underline"
+                >
+                  {t("home.exploreSubtitle")}
+                </Link>
+              </div>
+              {artists.length > 3 ? (
+                <a
+                  href="#explore-more"
+                  className="self-start text-sm font-medium text-pink-600 underline-offset-4 hover:underline sm:self-auto"
+                >
+                  {t("home.viewAll")}
+                </a>
+              ) : (
+                <span className="hidden sm:block sm:w-[6rem]" aria-hidden />
+              )}
             </div>
-            {artists.length > 3 ? (
-              <a
-                href="#explore-more"
-                className="self-start text-sm font-medium text-pink-600 underline-offset-4 hover:underline sm:self-auto"
-              >
-                {t("home.viewAll")}
-              </a>
-            ) : (
-              <span className="hidden sm:block sm:w-[6rem]" aria-hidden />
-            )}
-          </div>
 
-          {featuredShowcase.mode === "real" ? (
+            {featuredShowcase.mode === "real" ? (
             <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-3">
               {featuredShowcase.artists.map((artist) => (
                 <article
@@ -312,9 +316,10 @@ export default function HomePage() {
           )}
         </div>
       </section>
+      )}
 
       {/* EXPLORE MORE */}
-      {rest.length > 0 ? (
+      {rest.length > 0 && user?.role !== "makeup_artist" ? (
         <section className="px-4 pb-20 sm:px-6" id="explore-more">
           <div className="mx-auto max-w-7xl">
             <h2 className="mb-6 text-2xl font-semibold sm:text-3xl">{t("home.exploreTitle")}</h2>
