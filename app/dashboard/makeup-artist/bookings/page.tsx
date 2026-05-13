@@ -7,7 +7,6 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { RequireRole } from "@/components/auth/require-role";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useAuth } from "@/components/providers/auth-provider";
-import { BookingCalendar } from "@/components/booking/booking-calendar";
 import { BookingStatusBadge } from "@/components/booking/booking-status-badge";
 import { AppButton } from "@/components/ui/app-button";
 import { Notice } from "@/components/ui/notice";
@@ -17,8 +16,9 @@ import {
   updateBookingStatus,
 } from "@/lib/booking-storage";
 import { getUsers } from "@/lib/auth-storage";
-import { Booking, BookingStatus } from "@/lib/booking-types";
+import { BOOKING_SERVICE_TYPES, Booking, BookingStatus } from "@/lib/booking-types";
 import { BookingRequestMeta } from "@/components/booking/booking-request-meta";
+import { AppRoutes } from "@/lib/app-routes";
 
 export default function ArtistBookingsPage() {
   const { t, language } = useLanguage();
@@ -35,15 +35,23 @@ export default function ArtistBookingsPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const go = () => {
+    let cancelled = false;
+    const scrollToSection = () => {
       if (window.location.hash !== "#service-reviews") return;
-      requestAnimationFrame(() => {
-        document.getElementById("service-reviews")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      const el = document.getElementById("service-reviews");
+      if (!el) return;
+      const run = () => {
+        if (!cancelled) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+      requestAnimationFrame(() => requestAnimationFrame(run));
+      window.setTimeout(run, 220);
     };
-    go();
-    window.addEventListener("hashchange", go);
-    return () => window.removeEventListener("hashchange", go);
+    scrollToSection();
+    window.addEventListener("hashchange", scrollToSection);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("hashchange", scrollToSection);
+    };
   }, [pathname, version]);
 
   const completedHistory = useMemo(() => {
@@ -56,6 +64,33 @@ export default function ArtistBookingsPage() {
     const map = new Map(users.map((u) => [u.id, u.username]));
     return (id: string) => map.get(id) ?? id;
   }, [bookings, version]);
+
+  const serviceTypeLabel = (b: Booking) => {
+    const st = b.serviceType?.trim();
+    if (!st) return null;
+    return (BOOKING_SERVICE_TYPES as readonly string[]).includes(st) ? t(`booking.serviceTypes.${st}`) : st;
+  };
+
+  const formatSessionWhen = (iso: string) =>
+    new Date(iso).toLocaleString(language === "VN" ? "vi-VN" : "en-US", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const formatReviewedAt = (iso: string | undefined) => {
+    if (!iso) return null;
+    return new Date(iso).toLocaleString(language === "VN" ? "vi-VN" : "en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   function handleStatus(bookingId: string, next: BookingStatus) {
     if (!user) return;
@@ -70,7 +105,7 @@ export default function ArtistBookingsPage() {
 
   return (
     <RequireRole role="makeup_artist">
-      <DashboardShell title={t("booking.artistDashboardTitle")}>
+      <DashboardShell title={t("booking.artistDashboardTitle")} hideProfileCard>
         {notice ? (
           <div className="mb-4">
             <Notice type={notice.type} message={notice.message} />
@@ -79,61 +114,82 @@ export default function ArtistBookingsPage() {
 
         <section
           id="service-reviews"
-          className="scroll-mt-24 rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-6"
+          className="scroll-mt-28 rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-6"
         >
           <h2 className="text-lg font-semibold text-black">{t("booking.serviceHistoryTitle")}</h2>
           <p className="mt-1 text-sm text-gray-600">{t("booking.serviceHistorySubtitle")}</p>
           {completedHistory.length === 0 ? (
             <p className="mt-4 text-sm text-gray-500">{t("booking.serviceHistoryEmpty")}</p>
           ) : (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[520px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-black/10 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    <th className="py-2 pr-4">{t("booking.serviceHistoryColWhen")}</th>
-                    <th className="py-2 pr-4">{t("booking.serviceHistoryColCustomer")}</th>
-                    <th className="py-2 pr-4">{t("booking.serviceHistoryColRating")}</th>
-                    <th className="py-2">{t("booking.serviceHistoryColFeedback")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {completedHistory.map((b) => (
-                    <tr key={b.id} className="border-b border-black/5 last:border-0">
-                      <td className="py-3 pr-4 align-top text-gray-800">
-                        {new Date(b.startAt).toLocaleString(language === "VN" ? "vi-VN" : "en-US", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-                      <td className="py-3 pr-4 align-top font-medium text-black">{resolveName(b.customerId)}</td>
-                      <td className="py-3 pr-4 align-top text-black">
-                        {b.customerRating != null && b.customerRating > 0 ? (
-                          <>
-                            ★ {b.customerRating}/5
-                          </>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 align-top text-gray-700">
-                        {b.customerFeedback?.trim() ? b.customerFeedback.trim() : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
+            <>
+              <h3 className="mt-8 text-sm font-semibold text-black">{t("booking.serviceHistoryTableHeading")}</h3>
+              <div className="mt-4 overflow-x-auto rounded-xl border border-black/5 bg-white">
+                <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-black/10 bg-[#fdf8f6] text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="px-3 py-2.5">{t("booking.serviceHistoryColWhen")}</th>
+                      <th className="px-3 py-2.5">{t("booking.serviceHistoryColCustomer")}</th>
+                      <th className="px-3 py-2.5">{t("booking.serviceHistoryColService")}</th>
+                      <th className="px-3 py-2.5">{t("booking.serviceHistoryColLocation")}</th>
+                      <th className="px-3 py-2.5">{t("booking.serviceHistoryColModel")}</th>
+                      <th className="px-3 py-2.5">{t("booking.serviceHistoryColRating")}</th>
+                      <th className="min-w-[160px] px-3 py-2.5">{t("booking.serviceHistoryColFeedback")}</th>
+                      <th className="min-w-[120px] px-3 py-2.5">{t("booking.serviceHistoryColNotes")}</th>
+                      <th className="px-3 py-2.5">{t("booking.serviceHistoryColReviewedAt")}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {completedHistory.map((b) => (
+                      <tr key={b.id} className="border-b border-black/5 last:border-0">
+                        <td className="px-3 py-3 align-top text-gray-800">{formatSessionWhen(b.startAt)}</td>
+                        <td className="px-3 py-3 align-top font-medium text-black">{resolveName(b.customerId)}</td>
+                        <td className="px-3 py-3 align-top text-gray-800">
+                          {serviceTypeLabel(b) ?? <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="max-w-[140px] px-3 py-3 align-top text-gray-700">
+                          {b.address?.trim() ? (
+                            <span className="line-clamp-3">{b.address.trim()}</span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 align-top text-gray-800">
+                          {b.modelId ? resolveName(b.modelId) : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="px-3 py-3 align-top text-black">
+                          {b.customerRating != null && b.customerRating > 0 ? (
+                            <>★ {b.customerRating}/5</>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="max-w-[220px] px-3 py-3 align-top text-gray-700">
+                          {b.customerFeedback?.trim() ? (
+                            <span className="line-clamp-4 whitespace-pre-wrap">{b.customerFeedback.trim()}</span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="max-w-[160px] px-3 py-3 align-top text-gray-600">
+                          {b.notes?.trim() ? (
+                            <span className="line-clamp-3">{b.notes.trim()}</span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 align-top text-xs text-gray-600">
+                          {formatReviewedAt(b.reviewedAt) ?? <span className="text-gray-400">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </section>
 
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <BookingCalendar bookings={bookings} resolveName={resolveName} variant="artist" />
+        <div className="mt-6">
           <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-black">{t("booking.listTitle")}</h2>
             {bookings.length === 0 ? (
@@ -218,10 +274,16 @@ export default function ArtistBookingsPage() {
                 ))}
               </ul>
             )}
-            <Link className="mt-6 inline-flex text-sm font-semibold text-pink-600 hover:underline" href="/account">
-              {t("common.account")}
-            </Link>
           </div>
+        </div>
+
+        <div className="mt-8 flex flex-wrap gap-2">
+          <Link
+            href={AppRoutes.dashboardMakeupArtist}
+            className="inline-flex min-h-9 items-center justify-center rounded-full border border-black/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-black transition hover:bg-black hover:text-white"
+          >
+            {t("account.backDashboard")}
+          </Link>
         </div>
       </DashboardShell>
     </RequireRole>
