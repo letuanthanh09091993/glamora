@@ -17,9 +17,12 @@ export const ROLE_META: Record<
   artist_looking_model: {
     dashboardPath: AppRoutes.dashboardArtistLookingModel,
   },
+  admin: {
+    dashboardPath: AppRoutes.dashboardAdmin,
+  },
 };
 
 /** Roles offered on the public sign-up form. */
 export const SIGNUP_ROLES: UserRole[] = (Object.keys(ROLE_META) as UserRole[]).filter(
-  (r) => r !== "artist_looking_model",
+  (r) => r !== "artist_looking_model" && r !== "admin",
 );

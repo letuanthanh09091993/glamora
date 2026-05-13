@@ -90,6 +90,20 @@ const ROLE_SHELL: Record<UserRole, HomeRoleShellTheme> = {
     langDividerClass:
       "flex shrink-0 items-center border-l border-teal-200/60 pl-2 sm:pl-3",
   },
+  /** Admin — neutral slate */
+  admin: {
+    mainClass: "min-h-screen bg-gradient-to-b from-slate-50/50 via-[#fdf8f6] to-[#fdf8f6] text-[#2b2b2b]",
+    headerClass:
+      "sticky top-0 z-20 border-b border-slate-200/50 bg-gradient-to-b from-slate-50/60 to-[#fdf8f6]/95 backdrop-blur",
+    signedInHintClass:
+      "border-b border-slate-100/90 bg-gradient-to-r from-slate-50/95 via-zinc-50/70 to-white px-4 py-2.5 sm:px-6",
+    welcomeAccentClass: "font-semibold text-slate-950",
+    navLinkClass:
+      "shrink-0 rounded-full px-3 py-2 text-sm text-gray-700 transition hover:bg-slate-500/10 sm:px-4",
+    logoutButtonClass:
+      "shrink-0 rounded-full border border-slate-300/55 px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-800 hover:bg-slate-800 hover:text-white sm:px-4",
+    langDividerClass: "flex shrink-0 items-center border-l border-slate-200/70 pl-2 sm:pl-3",
+  },
 };
 
 export function getHomeRoleShellTheme(role: UserRole | null | undefined): HomeRoleShellTheme {

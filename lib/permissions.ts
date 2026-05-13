@@ -45,6 +45,8 @@ export function capabilitiesFromLegacyRole(role: UserRole): Capability[] {
       return ["model"];
     case "artist_looking_model":
       return ["artist", "model"];
+    case "admin":
+      return ["admin"];
     default:
       return ["customer"];
   }

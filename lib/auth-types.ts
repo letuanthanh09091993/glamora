@@ -3,6 +3,7 @@ export const USER_ROLES = [
   "makeup_artist",
   "model",
   "artist_looking_model",
+  "admin",
 ] as const;
 
 export type UserRole = (typeof USER_ROLES)[number];
@@ -65,6 +66,8 @@ export type UserAccount = {
   portfolioItems?: PortfolioItem[];
   castingRequests?: string[];
   isPublicProfile: boolean;
+  /** ISO timestamp when the account was created (optional for legacy rows). */
+  createdAt?: string;
 };
 
 export type SignupPayload = {

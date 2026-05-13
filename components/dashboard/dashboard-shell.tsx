@@ -9,6 +9,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { getArtistDeliveredSessionStats } from "@/lib/booking-storage";
 import { getRoleLabel } from "@/lib/i18n";
 import { AppRoutes } from "@/lib/app-routes";
+import { hasPermission } from "@/lib/permissions";
 
 function IconShowsProvided(props: { className?: string }) {
   return (
@@ -111,6 +112,14 @@ export function DashboardShell({
             <Link className="rounded-full px-4 py-2 text-sm hover:bg-black/5" href="/">
               {t("dashboard.navHome")}
             </Link>
+            {hasPermission(user.role, "canAccessAdmin") ? (
+              <Link
+                className="rounded-full px-4 py-2 text-sm hover:bg-black/5"
+                href={AppRoutes.dashboardAdmin}
+              >
+                {t("dashboard.adminAccounts.navLink")}
+              </Link>
+            ) : null}
             {user.role === "makeup_artist" ? (
               <>
                 <Link
