@@ -25,6 +25,10 @@ function sanitizePhone(phone: string) {
   return phone.replace(/\s+/g, "");
 }
 
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
 async function hashPassword(value: string) {
   const encoder = new TextEncoder();
   const data = encoder.encode(value);
@@ -103,6 +107,29 @@ export function updateCurrentUser(
 
   const index = users.findIndex((u) => u.id === currentId);
   if (index === -1) return { ok: false, messageKey: "authMessages.userNotFound" };
+
+  if (partial.phoneNumber !== undefined) {
+    const normalizedNew = sanitizePhone(partial.phoneNumber);
+    const conflict = users.some(
+      (u) =>
+        u.id !== currentId && sanitizePhone(u.phoneNumber) === normalizedNew,
+    );
+    if (conflict) return { ok: false, messageKey: "authMessages.phoneExists" };
+  }
+
+  if (partial.email !== undefined) {
+    const raw = partial.email.trim();
+    if (raw) {
+      const norm = normalizeEmail(raw);
+      const conflict = users.some(
+        (u) =>
+          u.id !== currentId &&
+          u.email &&
+          normalizeEmail(u.email) === norm,
+      );
+      if (conflict) return { ok: false, messageKey: "authMessages.emailExists" };
+    }
+  }
 
   users[index] = { ...users[index], ...partial };
   saveUsers(users);

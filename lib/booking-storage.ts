@@ -1,6 +1,9 @@
 "use client";
 
 import { Booking, BookingStatus, CreateBookingInput } from "@/lib/booking-types";
+
+/** Sessions where service was delivered (pipeline after confirmation). */
+const DELIVERED_STATUSES: BookingStatus[] = ["service_done", "awaiting_feedback", "completed"];
 import { UserRole } from "@/lib/auth-types";
 import { getUsers, saveUsers } from "@/lib/auth-storage";
 
@@ -47,11 +50,55 @@ export function getBookingsForArtist(artistId: string): Booking[] {
     .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
 }
 
+/** Khách đặt makeup với artist (không tính luồng artist đặt mẫu). */
+export function getArtistClientBookings(artistId: string): Booking[] {
+  return getBookingsForArtist(artistId).filter(
+    (b) => !(b.modelId && b.customerId === artistId),
+  );
+}
+
+/** Buổi đã phục vụ + số khách (unique) từ các buổi đó. */
+export function getArtistDeliveredSessionStats(artistId: string): {
+  sessionsDelivered: number;
+  uniqueCustomers: number;
+} {
+  const delivered = getArtistClientBookings(artistId).filter((b) =>
+    DELIVERED_STATUSES.includes(b.status),
+  );
+  return {
+    sessionsDelivered: delivered.length,
+    uniqueCustomers: new Set(delivered.map((b) => b.customerId)).size,
+  };
+}
+
+/** Client bookings marked completed, newest session first (excludes artist-as-customer model flow). */
+export function getArtistCompletedClientBookings(artistId: string): Booking[] {
+  return getArtistClientBookings(artistId)
+    .filter((b) => b.status === "completed")
+    .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+}
+
+/** Mean customer star rating when at least one rated completed booking exists. */
+export function averageCustomerRatingFromBookings(bookings: Booking[]): number | null {
+  const rated = bookings.filter((b) => b.customerRating != null && b.customerRating > 0);
+  if (!rated.length) return null;
+  const sum = rated.reduce((acc, b) => acc + (b.customerRating ?? 0), 0);
+  return Math.round((sum / rated.length) * 10) / 10;
+}
+
+export function getBookingsForModel(modelId: string): Booking[] {
+  return readBookings()
+    .filter((b) => b.modelId === modelId)
+    .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+}
+
 export function createBooking(input: CreateBookingInput): Booking {
   const bookings = readBookings();
+  const { modelId, ...rest } = input;
   const booking: Booking = {
     id: crypto.randomUUID(),
-    ...input,
+    ...rest,
+    ...(modelId ? { modelId } : {}),
     status: "pending",
     createdAt: new Date().toISOString(),
   };
@@ -105,6 +152,15 @@ export function updateBookingStatus(
       return { ok: false, messageKey: "booking.errors.invalidTransition" };
     }
   } else if (actor.role === "makeup_artist" && booking.artistId === actor.id) {
+    if (!canArtistSetStatus(from, next)) {
+      return { ok: false, messageKey: "booking.errors.invalidTransition" };
+    }
+  } else if (actor.role === "makeup_artist" && booking.customerId === actor.id && booking.modelId) {
+    // Artist booked a model (artist is the requester stored in customerId).
+    if (!canArtistSetStatus(from, next)) {
+      return { ok: false, messageKey: "booking.errors.invalidTransition" };
+    }
+  } else if (actor.role === "model" && booking.modelId === actor.id) {
     if (!canArtistSetStatus(from, next)) {
       return { ok: false, messageKey: "booking.errors.invalidTransition" };
     }

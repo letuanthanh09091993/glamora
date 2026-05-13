@@ -412,6 +412,14 @@ export default function ModelsIndexPage() {
                       <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                         <p className="text-sm font-medium text-gray-700">{metaLine}</p>
                         <div className="flex flex-wrap gap-2">
+                          {user?.role === "makeup_artist" && !isDemoCard ? (
+                            <Link
+                              href={`/book-model/${encodeURIComponent(model.username)}`}
+                              className="rounded-full bg-black px-4 py-2 text-center text-xs font-semibold text-white transition hover:opacity-90 sm:text-sm"
+                            >
+                              {t("profile.bookSession")}
+                            </Link>
+                          ) : null}
                           {isDemoCard && demoSlot ? (
                             <Link
                               href={`/models/${MODEL_DEMO_SLUGS[demoSlot - 1]}`}

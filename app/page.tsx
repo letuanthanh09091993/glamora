@@ -15,6 +15,7 @@ import { MODEL_DEMO_SLUGS } from "@/lib/model-demo-profiles";
 import { getHomeRoleShellTheme } from "@/lib/home-role-theme";
 import { HomeBookingBell } from "@/components/home/home-booking-bell";
 import { HomeArtistPendingSection } from "@/components/home/home-artist-pending-section";
+import { HomeModelPendingSection } from "@/components/home/home-model-pending-section";
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -175,9 +176,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FEATURED — makeup artists see pending bookings; others see featured specialists */}
+      {/* FEATURED — artists/models see pending bookings; others see featured specialists */}
       {isReady && user?.role === "makeup_artist" ? (
         <HomeArtistPendingSection />
+      ) : isReady && user?.role === "model" ? (
+        <HomeModelPendingSection />
       ) : (
         <section className="px-4 pb-12 sm:px-6" id="explore">
           <div className="mx-auto max-w-7xl">
@@ -319,7 +322,7 @@ export default function HomePage() {
       )}
 
       {/* EXPLORE MORE */}
-      {rest.length > 0 && user?.role !== "makeup_artist" ? (
+      {rest.length > 0 && user?.role !== "makeup_artist" && user?.role !== "model" ? (
         <section className="px-4 pb-20 sm:px-6" id="explore-more">
           <div className="mx-auto max-w-7xl">
             <h2 className="mb-6 text-2xl font-semibold sm:text-3xl">{t("home.exploreTitle")}</h2>

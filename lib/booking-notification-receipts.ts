@@ -7,9 +7,11 @@ const STORAGE_KEY = "glamora_booking_notif_receipts_v1";
 
 type ReceiptFlags = {
   artistPendingSeen?: boolean;
+  artistModelPendingSeen?: boolean;
   customerConfirmedSeen?: boolean;
   customerServiceDoneSeen?: boolean;
   artistAwaitingFeedbackSeen?: boolean;
+  modelPendingSeen?: boolean;
 };
 
 function readReceipts(): Record<string, ReceiptFlags> {
@@ -50,7 +52,12 @@ export function getArtistInboxBookings(artistUserId: string): Booking[] {
   return listBookings()
     .filter((b) => {
       if (b.artistId !== artistUserId) return false;
-      if (b.status === "pending" && !receipts[b.id]?.artistPendingSeen) return true;
+      // Incoming: customer booked artist.
+      if (b.status === "pending" && b.customerId !== artistUserId && !receipts[b.id]?.artistPendingSeen) return true;
+      // Outgoing: artist booked a model (requester stored as customerId == artist).
+      if (b.status === "pending" && b.customerId === artistUserId && b.modelId && !receipts[b.id]?.artistModelPendingSeen) {
+        return true;
+      }
       if (b.status === "awaiting_feedback" && !receipts[b.id]?.artistAwaitingFeedbackSeen) return true;
       return false;
     })
@@ -70,10 +77,26 @@ export function getCustomerInboxBookings(customerUserId: string): Booking[] {
     .sort(sortBookingsDesc);
 }
 
+/** Model: unread pending requests (artist booked model). */
+export function getModelInboxBookings(modelUserId: string): Booking[] {
+  const receipts = readReceipts();
+  return listBookings()
+    .filter((b) => {
+      if (b.modelId !== modelUserId) return false;
+      if (b.status === "pending" && !receipts[b.id]?.modelPendingSeen) return true;
+      return false;
+    })
+    .sort(sortBookingsDesc);
+}
+
 export function markArtistInboxSeen(bookings: Booking[]): void {
   for (const b of bookings) {
     if (b.status === "pending") {
-      markBookingNotificationReceipts([b.id], { artistPendingSeen: true });
+      if (b.customerId === b.artistId && b.modelId) {
+        markBookingNotificationReceipts([b.id], { artistModelPendingSeen: true });
+      } else {
+        markBookingNotificationReceipts([b.id], { artistPendingSeen: true });
+      }
     } else if (b.status === "awaiting_feedback") {
       markBookingNotificationReceipts([b.id], { artistAwaitingFeedbackSeen: true });
     }
@@ -86,6 +109,14 @@ export function markCustomerInboxSeen(bookings: Booking[]): void {
       markBookingNotificationReceipts([b.id], { customerConfirmedSeen: true });
     } else if (b.status === "service_done") {
       markBookingNotificationReceipts([b.id], { customerServiceDoneSeen: true });
+    }
+  }
+}
+
+export function markModelInboxSeen(bookings: Booking[]): void {
+  for (const b of bookings) {
+    if (b.status === "pending") {
+      markBookingNotificationReceipts([b.id], { modelPendingSeen: true });
     }
   }
 }

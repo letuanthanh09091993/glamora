@@ -9,18 +9,18 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { AppButton } from "@/components/ui/app-button";
 import { getUsers } from "@/lib/auth-storage";
 import { AppRoutes } from "@/lib/app-routes";
-import { getBookingsForArtist, updateBookingStatus } from "@/lib/booking-storage";
+import { getBookingsForModel, updateBookingStatus } from "@/lib/booking-storage";
 import type { Booking, BookingStatus } from "@/lib/booking-types";
 
-export function HomeArtistPendingSection() {
+export function HomeModelPendingSection() {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
-    if (!user || user.role !== "makeup_artist") return;
-    setBookings(getBookingsForArtist(user.id));
+    if (!user || user.role !== "model") return;
+    setBookings(getBookingsForModel(user.id));
   }, [user, version]);
 
   const resolveName = useMemo(() => {
@@ -46,36 +46,22 @@ export function HomeArtistPendingSection() {
 
   const locale = language === "VN" ? "vi-VN" : "en-US";
 
-  function isModelBooking(b: Booking): boolean {
-    return Boolean(b.modelId) && b.customerId === b.artistId;
-  }
-
-  function bookingCounterpartyLabel(b: Booking): string {
-    return isModelBooking(b) ? t("booking.withModel") : t("booking.withCustomer");
-  }
-
-  function bookingCounterpartyName(b: Booking): string {
-    return isModelBooking(b) ? resolveName(b.modelId!) : resolveName(b.customerId);
-  }
-
-  const dashboardHref = AppRoutes.dashboardMakeupArtistBookings;
-
   return (
     <section className="px-4 pb-12 sm:px-6" id="explore">
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex flex-col gap-4 sm:mb-10 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-pink-400">{t("home.feedEyebrow")}</p>
-            <h2 className="mt-1 text-2xl font-semibold sm:text-3xl">{t("home.artistHomePendingHeading")}</h2>
+            <h2 className="mt-1 text-2xl font-semibold sm:text-3xl">{t("home.modelHomePendingHeading")}</h2>
             <Link
-              href={dashboardHref}
+              href={AppRoutes.dashboardModelBookings}
               className="mt-1 inline-block max-w-xl text-sm font-medium text-pink-600 underline-offset-4 hover:underline"
             >
-              {t("home.artistHomePendingSeeAll")}
+              {t("home.modelHomePendingSeeAll")}
             </Link>
           </div>
           <Link
-            href={dashboardHref}
+            href={AppRoutes.dashboardModelBookings}
             className="self-start text-sm font-medium text-pink-600 underline-offset-4 hover:underline sm:self-auto"
           >
             {t("home.viewAll")}
@@ -84,12 +70,12 @@ export function HomeArtistPendingSection() {
 
         {pending.length === 0 ? (
           <div className="rounded-[28px] border border-dashed border-black/15 bg-white/80 p-8 text-center shadow-sm ring-1 ring-black/5">
-            <p className="text-sm text-gray-600">{t("home.artistHomePendingEmpty")}</p>
+            <p className="text-sm text-gray-600">{t("home.modelHomePendingEmpty")}</p>
             <Link
-              href={dashboardHref}
+              href={AppRoutes.dashboardModelBookings}
               className="mt-4 inline-block text-sm font-semibold text-pink-600 hover:underline"
             >
-              {t("home.artistHomePendingOpenDashboard")}
+              {t("home.modelHomePendingOpenDashboard")}
             </Link>
           </div>
         ) : (
@@ -99,14 +85,16 @@ export function HomeArtistPendingSection() {
                 key={b.id}
                 className="flex flex-col overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-xl"
               >
-                <div className="aspect-[4/3] bg-gradient-to-br from-pink-100 via-rose-50 to-pink-50 sm:aspect-[16/11]" />
+                <div className="aspect-[4/3] bg-gradient-to-br from-violet-100 via-purple-50 to-pink-50 sm:aspect-[16/11]" />
                 <div className="flex flex-1 flex-col p-5 sm:p-6">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">
-                        {bookingCounterpartyLabel(b)}
+                      <h3 className="truncate text-lg font-semibold text-black">
+                        {b.customerId === b.artistId ? resolveName(b.artistId) : resolveName(b.customerId)}
+                      </h3>
+                      <p className="mt-1 text-xs text-gray-600">
+                        {t("booking.withArtist")}: {resolveName(b.artistId)}
                       </p>
-                      <h3 className="mt-1 truncate text-lg font-semibold text-black">{bookingCounterpartyName(b)}</h3>
                     </div>
                     <BookingStatusBadge status={b.status} />
                   </div>
@@ -137,10 +125,10 @@ export function HomeArtistPendingSection() {
                       {t("booking.actions.decline")}
                     </AppButton>
                     <Link
-                      href={dashboardHref}
+                      href={AppRoutes.dashboardModelBookings}
                       className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-full border border-black/15 px-4 py-2 text-center text-xs font-semibold transition hover:bg-black hover:text-white sm:text-sm"
                     >
-                      {t("home.artistHomePendingDetails")}
+                      {t("home.modelHomePendingDetails")}
                     </Link>
                   </div>
                 </div>

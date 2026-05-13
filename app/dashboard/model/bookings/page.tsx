@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
@@ -11,44 +10,21 @@ import { BookingCalendar } from "@/components/booking/booking-calendar";
 import { BookingStatusBadge } from "@/components/booking/booking-status-badge";
 import { AppButton } from "@/components/ui/app-button";
 import { Notice } from "@/components/ui/notice";
-import {
-  getArtistCompletedClientBookings,
-  getBookingsForArtist,
-  updateBookingStatus,
-} from "@/lib/booking-storage";
+import { getBookingsForModel, updateBookingStatus } from "@/lib/booking-storage";
 import { getUsers } from "@/lib/auth-storage";
 import { Booking, BookingStatus } from "@/lib/booking-types";
 import { BookingRequestMeta } from "@/components/booking/booking-request-meta";
 
-export default function ArtistBookingsPage() {
+export default function ModelBookingsPage() {
   const { t, language } = useLanguage();
   const { user } = useAuth();
-  const pathname = usePathname();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    setBookings(getBookingsForArtist(user.id).filter((b) => !(b.modelId && b.customerId === user.id)));
-  }, [user, version]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const go = () => {
-      if (window.location.hash !== "#service-reviews") return;
-      requestAnimationFrame(() => {
-        document.getElementById("service-reviews")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    };
-    go();
-    window.addEventListener("hashchange", go);
-    return () => window.removeEventListener("hashchange", go);
-  }, [pathname, version]);
-
-  const completedHistory = useMemo(() => {
-    if (!user) return [];
-    return getArtistCompletedClientBookings(user.id);
+    setBookings(getBookingsForModel(user.id));
   }, [user, version]);
 
   const resolveName = useMemo(() => {
@@ -69,71 +45,16 @@ export default function ArtistBookingsPage() {
   }
 
   return (
-    <RequireRole role="makeup_artist">
-      <DashboardShell title={t("booking.artistDashboardTitle")}>
+    <RequireRole role="model">
+      <DashboardShell title={t("booking.modelDashboardTitle")}>
         {notice ? (
           <div className="mb-4">
             <Notice type={notice.type} message={notice.message} />
           </div>
         ) : null}
 
-        <section
-          id="service-reviews"
-          className="scroll-mt-24 rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-6"
-        >
-          <h2 className="text-lg font-semibold text-black">{t("booking.serviceHistoryTitle")}</h2>
-          <p className="mt-1 text-sm text-gray-600">{t("booking.serviceHistorySubtitle")}</p>
-          {completedHistory.length === 0 ? (
-            <p className="mt-4 text-sm text-gray-500">{t("booking.serviceHistoryEmpty")}</p>
-          ) : (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[520px] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-black/10 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    <th className="py-2 pr-4">{t("booking.serviceHistoryColWhen")}</th>
-                    <th className="py-2 pr-4">{t("booking.serviceHistoryColCustomer")}</th>
-                    <th className="py-2 pr-4">{t("booking.serviceHistoryColRating")}</th>
-                    <th className="py-2">{t("booking.serviceHistoryColFeedback")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {completedHistory.map((b) => (
-                    <tr key={b.id} className="border-b border-black/5 last:border-0">
-                      <td className="py-3 pr-4 align-top text-gray-800">
-                        {new Date(b.startAt).toLocaleString(language === "VN" ? "vi-VN" : "en-US", {
-                          weekday: "short",
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-                      <td className="py-3 pr-4 align-top font-medium text-black">{resolveName(b.customerId)}</td>
-                      <td className="py-3 pr-4 align-top text-black">
-                        {b.customerRating != null && b.customerRating > 0 ? (
-                          <>
-                            ★ {b.customerRating}/5
-                          </>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="py-3 align-top text-gray-700">
-                        {b.customerFeedback?.trim() ? b.customerFeedback.trim() : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <div className="mt-6 grid gap-6 lg:grid-cols-2">
-          <BookingCalendar bookings={bookings} resolveName={resolveName} variant="artist" />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <BookingCalendar bookings={bookings} resolveName={resolveName} variant="model" />
           <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-6">
             <h2 className="text-lg font-semibold text-black">{t("booking.listTitle")}</h2>
             {bookings.length === 0 ? (
@@ -155,7 +76,10 @@ export default function ArtistBookingsPage() {
                       </span>
                     </div>
                     <p className="mt-2 text-sm font-semibold text-black">
-                      {t("booking.withCustomer")}: {resolveName(b.customerId)}
+                      {t("booking.withCustomer")}: {b.customerId === b.artistId ? resolveName(b.artistId) : resolveName(b.customerId)}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-700">
+                      {t("booking.withArtist")}: {resolveName(b.artistId)}
                     </p>
                     <p className="mt-1 text-xs text-gray-600">
                       {t("booking.startTime")}:{" "}

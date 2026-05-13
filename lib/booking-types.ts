@@ -26,6 +26,8 @@ export type Booking = {
   id: string;
   customerId: string;
   artistId: string;
+  /** When set, this makeup model is invited on the booking (session / shoot). */
+  modelId?: string;
   startAt: string;
   endAt: string;
   notes: string;
@@ -46,6 +48,7 @@ export type Booking = {
 export type CreateBookingInput = {
   customerId: string;
   artistId: string;
+  modelId?: string;
   startAt: string;
   endAt: string;
   notes: string;

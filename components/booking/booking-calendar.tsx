@@ -25,7 +25,7 @@ function toDayKey(d: Date) {
 type BookingCalendarProps = {
   bookings: Booking[];
   resolveName: (userId: string) => string;
-  variant?: "customer" | "artist";
+  variant?: "customer" | "artist" | "model";
 };
 
 export function BookingCalendar({ bookings, resolveName, variant = "customer" }: BookingCalendarProps) {
@@ -181,8 +181,24 @@ export function BookingCalendar({ bookings, resolveName, variant = "customer" }:
                   </span>
                 </div>
                 <p className="mt-2 font-medium text-black">
-                  {variant === "customer" ? t("booking.withArtist") : t("booking.withCustomer")}:{" "}
-                  {variant === "customer" ? resolveName(b.artistId) : resolveName(b.customerId)}
+                  {variant === "model" ? (
+                    <>
+                      <span className="block">
+                        {t("booking.withCustomer")}: {resolveName(b.customerId)}
+                      </span>
+                      <span className="mt-1 block font-normal text-gray-700">
+                        {t("booking.withArtist")}: {resolveName(b.artistId)}
+                      </span>
+                    </>
+                  ) : variant === "customer" ? (
+                    <>
+                      {t("booking.withArtist")}: {resolveName(b.artistId)}
+                    </>
+                  ) : (
+                    <>
+                      {t("booking.withCustomer")}: {resolveName(b.customerId)}
+                    </>
+                  )}
                 </p>
                 <BookingRequestMeta booking={b} />
                 {b.notes ? <p className="mt-1 text-xs text-gray-600">{b.notes}</p> : null}

@@ -1,24 +1,22 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
 import { Notice } from "@/components/ui/notice";
 import { useLanguage } from "@/components/providers/language-provider";
-import { listPublicModels } from "@/lib/auth-storage";
-import { UserAccount } from "@/lib/auth-types";
 import { createBooking } from "@/lib/booking-storage";
 import { BOOKING_SERVICE_TYPES } from "@/lib/booking-types";
 
-type BookingFormProps = {
-  customerId: string;
+type ModelBookingFormProps = {
   artistId: string;
+  modelId: string;
   onCreated?: () => void;
 };
 
 const DURATION_OPTIONS = [60, 90, 120, 180];
 
-export function BookingForm({ customerId, artistId, onCreated }: BookingFormProps) {
+export function ModelBookingForm({ artistId, modelId, onCreated }: ModelBookingFormProps) {
   const { t } = useLanguage();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [date, setDate] = useState(today);
@@ -28,14 +26,8 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
   const [contactPhone, setContactPhone] = useState("");
   const [serviceType, setServiceType] = useState<string>(BOOKING_SERVICE_TYPES[0]);
   const [notes, setNotes] = useState("");
-  const [publicModels, setPublicModels] = useState<UserAccount[]>([]);
-  const [optionalModelId, setOptionalModelId] = useState("");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
-
-  useEffect(() => {
-    setPublicModels(listPublicModels());
-  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -65,10 +57,12 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
     }
 
     const end = new Date(start.getTime() + minutes * 60_000);
+
+    // Reuse booking storage: artist is the requester stored in customerId == artistId.
     createBooking({
-      customerId,
+      customerId: artistId,
       artistId,
-      ...(optionalModelId ? { modelId: optionalModelId } : {}),
+      modelId,
       startAt: start.toISOString(),
       endAt: end.toISOString(),
       notes: notes.trim(),
@@ -139,24 +133,6 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
         </label>
       </div>
 
-      {publicModels.length > 0 ? (
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium text-gray-700">{t("booking.optionalModelLabel")}</span>
-          <select
-            value={optionalModelId}
-            onChange={(e) => setOptionalModelId(e.target.value)}
-            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
-          >
-            <option value="">{t("booking.optionalModelNone")}</option>
-            {publicModels.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.username}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-
       <label className="block">
         <span className="mb-2 block text-sm font-medium text-gray-700">{t("booking.notesLabel")}</span>
         <textarea
@@ -176,3 +152,4 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
     </form>
   );
 }
+

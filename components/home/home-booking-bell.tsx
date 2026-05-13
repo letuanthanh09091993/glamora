@@ -9,8 +9,10 @@ import { getUsers } from "@/lib/auth-storage";
 import {
   getArtistInboxBookings,
   getCustomerInboxBookings,
+  getModelInboxBookings,
   markArtistInboxSeen,
   markCustomerInboxSeen,
+  markModelInboxSeen,
 } from "@/lib/booking-notification-receipts";
 import type { Booking } from "@/lib/booking-types";
 import type { UserAccount } from "@/lib/auth-types";
@@ -19,9 +21,12 @@ type HomeBookingBellProps = {
   buttonClassName?: string;
 };
 
-function inboxLineKey(b: Booking, role: "makeup_artist" | "customer"): string {
+function inboxLineKey(b: Booking, role: "makeup_artist" | "customer" | "model"): string {
   if (role === "makeup_artist") {
-    if (b.status === "pending") return "home.notifications.artistLine";
+    if (b.status === "pending") {
+      if (b.customerId === b.artistId && b.modelId) return "home.notifications.artistModelLine";
+      return "home.notifications.artistLine";
+    }
     return "home.notifications.artistAwaitingFeedbackLine";
   }
   if (b.status === "confirmed") return "home.notifications.customerLine";
@@ -47,6 +52,7 @@ export function HomeBookingBell({ buttonClassName }: HomeBookingBellProps) {
     if (!user) return 0;
     if (user.role === "makeup_artist") return getArtistInboxBookings(user.id).length;
     if (user.role === "customer") return getCustomerInboxBookings(user.id).length;
+    if (user.role === "model") return getModelInboxBookings(user.id).length;
     return 0;
   }, [user, tick]);
 
@@ -59,6 +65,7 @@ export function HomeBookingBell({ buttonClassName }: HomeBookingBellProps) {
     if (snapshot?.length) {
       if (user?.role === "makeup_artist") markArtistInboxSeen(snapshot);
       if (user?.role === "customer") markCustomerInboxSeen(snapshot);
+      if (user?.role === "model") markModelInboxSeen(snapshot);
     }
     setSnapshot(null);
     setOpen(false);
@@ -71,6 +78,8 @@ export function HomeBookingBell({ buttonClassName }: HomeBookingBellProps) {
       setSnapshot(getArtistInboxBookings(user.id));
     } else if (user.role === "customer") {
       setSnapshot(getCustomerInboxBookings(user.id));
+    } else if (user.role === "model") {
+      setSnapshot(getModelInboxBookings(user.id));
     } else {
       setSnapshot([]);
     }
@@ -96,7 +105,18 @@ export function HomeBookingBell({ buttonClassName }: HomeBookingBellProps) {
       ? AppRoutes.dashboardMakeupArtistBookings
       : user.role === "customer"
         ? AppRoutes.dashboardCustomerBookings
+        : user.role === "model"
+          ? AppRoutes.dashboardModelBookings
         : null;
+
+  const bookingsButtonLabel =
+    user.role === "makeup_artist"
+      ? t("home.notifications.viewArtistBookings")
+      : user.role === "customer"
+        ? t("home.notifications.viewCustomerBookings")
+        : user.role === "model"
+          ? t("home.notifications.viewModelBookings")
+          : "";
 
   return (
     <div ref={wrapRef} className="relative shrink-0">
@@ -134,7 +154,7 @@ export function HomeBookingBell({ buttonClassName }: HomeBookingBellProps) {
         >
           <p className="text-xs font-semibold uppercase tracking-wide text-pink-600">{t("home.notifications.title")}</p>
 
-          {user.role !== "makeup_artist" && user.role !== "customer" ? (
+          {user.role !== "makeup_artist" && user.role !== "customer" && user.role !== "model" ? (
             <p className="mt-3 text-sm text-gray-600">{t("home.notifications.roleOtherHint")}</p>
           ) : !snapshot || snapshot.length === 0 ? (
             <p className="mt-3 text-sm text-gray-600">{t("home.notifications.empty")}</p>
@@ -143,14 +163,22 @@ export function HomeBookingBell({ buttonClassName }: HomeBookingBellProps) {
               {snapshot.map((b) => (
                 <li key={b.id} className="rounded-xl border border-black/5 bg-[#fdf8f6] p-3 text-sm text-gray-800">
                   <p className="font-medium text-black">
-                    {user.role === "makeup_artist" || user.role === "customer"
-                      ? t(inboxLineKey(b, user.role as "makeup_artist" | "customer"))
+                    {user.role === "makeup_artist" || user.role === "customer" || user.role === "model"
+                      ? t(inboxLineKey(b, user.role as "makeup_artist" | "customer" | "model"))
                       : ""}
                   </p>
                   <p className="mt-1 text-xs text-gray-600">
-                    {user.role === "makeup_artist"
-                      ? `${t("booking.withCustomer")}: ${nameMap.get(b.customerId) ?? "—"}`
-                      : `${t("booking.withArtist")}: ${nameMap.get(b.artistId) ?? "—"}`}
+                    {user.role === "makeup_artist" ? (
+                      b.customerId === b.artistId && b.modelId ? (
+                        `${t("booking.withModel")}: ${nameMap.get(b.modelId) ?? "—"}`
+                      ) : (
+                        `${t("booking.withCustomer")}: ${nameMap.get(b.customerId) ?? "—"}`
+                      )
+                    ) : user.role === "model" ? (
+                      `${t("booking.withArtist")}: ${nameMap.get(b.artistId) ?? "—"}`
+                    ) : (
+                      `${t("booking.withArtist")}: ${nameMap.get(b.artistId) ?? "—"}`
+                    )}
                   </p>
                   <p className="mt-1 text-xs text-gray-500">
                     {new Date(b.startAt).toLocaleString(locale, {
@@ -172,9 +200,7 @@ export function HomeBookingBell({ buttonClassName }: HomeBookingBellProps) {
               onClick={() => closePanel()}
               className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-black px-4 py-2.5 text-center text-xs font-semibold text-white transition hover:opacity-90"
             >
-              {user.role === "makeup_artist"
-                ? t("home.notifications.viewArtistBookings")
-                : t("home.notifications.viewCustomerBookings")}
+              {bookingsButtonLabel}
             </Link>
           ) : null}
         </div>

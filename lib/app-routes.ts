@@ -17,7 +17,14 @@ export const AppRoutes = {
   dashboardCustomerBookings: "/dashboard/customer/bookings",
   dashboardMakeupArtist: "/dashboard/makeup-artist",
   dashboardMakeupArtistBookings: "/dashboard/makeup-artist/bookings",
+  dashboardMakeupArtistModelBookings: "/dashboard/makeup-artist/model-bookings",
+  dashboardMakeupArtistPost: "/dashboard/makeup-artist/post",
+  /** Mở trang đăng bài với form trống (query xử lý trong `post/page.tsx`). */
+  dashboardMakeupArtistPostFresh: "/dashboard/makeup-artist/post?fresh=1",
+  /** Customer-style gallery + album/style/package filters */
+  dashboardMakeupArtistPortfolio: "/dashboard/makeup-artist/portfolio",
   dashboardModel: "/dashboard/model",
+  dashboardModelBookings: "/dashboard/model/bookings",
   dashboardArtistLookingModel: "/dashboard/artist-looking-model",
 
   /** Public discovery & profiles */
