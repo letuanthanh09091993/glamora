@@ -12,10 +12,13 @@ import { BeautyMagazineSection } from "@/components/home/beauty-magazine-section
 import { AppRoutes } from "@/lib/app-routes";
 import { FEATURED_DEMO_SLUGS } from "@/lib/featured-demo-profiles";
 import { MODEL_DEMO_SLUGS } from "@/lib/model-demo-profiles";
+import { getHomeRoleShellTheme } from "@/lib/home-role-theme";
+import { HomeBookingBell } from "@/components/home/home-booking-bell";
 
 export default function HomePage() {
   const { t } = useLanguage();
   const { user, logout, isReady } = useAuth();
+  const shell = useMemo(() => getHomeRoleShellTheme(user?.role), [user?.role]);
   const [artists, setArtists] = useState<UserAccount[]>([]);
   const [models, setModels] = useState<UserAccount[]>([]);
 
@@ -53,8 +56,8 @@ export default function HomePage() {
   }, [models]);
 
   return (
-    <main className="min-h-screen bg-[#fdf8f6] text-[#2b2b2b]">
-      <header className="sticky top-0 z-20 border-b border-black/5 bg-[#fdf8f6]/95 backdrop-blur">
+    <main className={shell.mainClass}>
+      <header className={shell.headerClass}>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 sm:px-6 sm:py-4">
           <AppLogoLink />
 
@@ -62,20 +65,14 @@ export default function HomePage() {
             {isReady && user ? (
               <>
                 <p className="w-full max-w-full truncate text-right text-xs text-gray-500 sm:w-auto sm:max-w-[11rem] md:max-w-none">
-                  <span className="font-semibold text-black">{t("home.welcomeBack")}</span>, {user.username}
+                  <span className={shell.welcomeAccentClass}>{t("home.welcomeBack")}</span>, {user.username}
                 </p>
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Link
-                    href="/dashboard"
-                    className="shrink-0 rounded-full px-3 py-2 text-sm text-gray-700 transition hover:bg-black/5 sm:px-4"
-                  >
+                  <Link href="/dashboard" className={shell.navLinkClass}>
                     {t("home.navPersonalHome")}
                   </Link>
-                  <button
-                    type="button"
-                    onClick={logout}
-                    className="shrink-0 rounded-full border border-black/15 px-3 py-2 text-sm font-medium text-gray-800 transition hover:bg-black hover:text-white sm:px-4"
-                  >
+                  <HomeBookingBell />
+                  <button type="button" onClick={logout} className={shell.logoutButtonClass}>
                     {t("common.logout")}
                   </button>
                 </div>
@@ -97,7 +94,7 @@ export default function HomePage() {
               </div>
             )}
 
-            <div className="flex shrink-0 items-center border-l border-black/10 pl-2 sm:pl-3">
+            <div className={shell.langDividerClass}>
               <span className="sr-only">{t("home.languageHint")}</span>
               <LanguageSwitcher />
             </div>
@@ -106,7 +103,7 @@ export default function HomePage() {
       </header>
 
       {isReady && user ? (
-        <div className="border-b border-pink-100 bg-gradient-to-r from-pink-50/90 to-white px-4 py-2.5 sm:px-6">
+        <div className={shell.signedInHintClass}>
           <p className="mx-auto max-w-7xl text-center text-xs text-gray-700 sm:text-sm">{t("home.signedInHint")}</p>
         </div>
       ) : null}
@@ -141,18 +138,38 @@ export default function HomePage() {
           <h2 className="mt-2 text-2xl font-bold text-black sm:text-3xl">{t("home.discoveryTitle")}</h2>
           <p className="mx-auto mt-2 max-w-2xl text-sm text-gray-600 sm:text-base">{t("home.discoveryBody")}</p>
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:mx-auto sm:max-w-xl sm:flex-row sm:gap-4">
-            <Link
-              href={AppRoutes.artistsIndex}
-              className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full border border-black/20 bg-white px-6 py-3 text-sm font-semibold text-black transition-all duration-300 hover:-translate-y-0.5 hover:bg-black hover:text-white"
-            >
-              {t("home.discoveryArtistsCta")}
-            </Link>
-            <Link
-              href={AppRoutes.modelsIndex}
-              className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:opacity-90"
-            >
-              {t("home.discoveryModelsCta")}
-            </Link>
+            {isReady && user ? (
+              <Link
+                href={AppRoutes.artistsIndex}
+                className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full border border-black/20 bg-white px-6 py-3 text-sm font-semibold text-black transition-all duration-300 hover:-translate-y-0.5 hover:bg-black hover:text-white"
+              >
+                {t("home.discoveryArtistsCta")}
+              </Link>
+            ) : (
+              <Link
+                href={`${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.artistsIndex)}`}
+                title={t("home.discoveryArtistsLoginHint")}
+                className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full border border-dashed border-black/25 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition-all duration-300 hover:border-black/40 hover:bg-black/5"
+              >
+                {t("home.discoveryArtistsCta")}
+              </Link>
+            )}
+            {isReady && user ? (
+              <Link
+                href={AppRoutes.modelsIndex}
+                className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:opacity-90"
+              >
+                {t("home.discoveryModelsCta")}
+              </Link>
+            ) : (
+              <Link
+                href={`${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.modelsIndex)}`}
+                title={t("home.discoveryModelsLoginHint")}
+                className="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-full border border-dashed border-black/30 bg-white px-6 py-3 text-sm font-semibold text-gray-800 transition-all duration-300 hover:border-black/50 hover:bg-black/5"
+              >
+                {t("home.discoveryModelsCta")}
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -165,7 +182,12 @@ export default function HomePage() {
               <p className="text-xs uppercase tracking-[0.2em] text-pink-400">{t("home.feedEyebrow")}</p>
               <h2 className="mt-1 text-2xl font-semibold sm:text-3xl">{t("home.featuredArtists")}</h2>
               <Link
-                href={AppRoutes.artistsIndex}
+                href={
+                  isReady && user
+                    ? AppRoutes.artistsIndex
+                    : `${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.artistsIndex)}`
+                }
+                title={!isReady || !user ? t("home.discoveryArtistsLoginHint") : undefined}
                 className="mt-1 inline-block max-w-xl text-sm font-medium text-pink-600 underline-offset-4 hover:underline"
               >
                 {t("home.exploreSubtitle")}
@@ -216,18 +238,38 @@ export default function HomePage() {
                     <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                       <p className="text-sm font-medium">{artist.pricing || t("home.fromPrice")}</p>
                       <div className="flex flex-wrap gap-2">
-                        <Link
-                          href={`/profile/${artist.username}`}
-                          className="rounded-full border border-black/15 px-4 py-2 text-center text-xs font-semibold transition hover:bg-black hover:text-white sm:text-sm"
-                        >
-                          {t("common.publicProfile")}
-                        </Link>
-                        <Link
-                          href={`/book/${artist.username}`}
-                          className="rounded-full bg-black px-4 py-2 text-center text-xs font-semibold text-white transition hover:opacity-90 sm:text-sm"
-                        >
-                          {t("home.bookNow")}
-                        </Link>
+                        {isReady && user ? (
+                          <Link
+                            href={AppRoutes.legacyProfile(artist.username)}
+                            className="rounded-full border border-black/15 px-4 py-2 text-center text-xs font-semibold transition hover:bg-black hover:text-white sm:text-sm"
+                          >
+                            {t("common.publicProfile")}
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.legacyProfile(artist.username))}`}
+                            title={t("home.loginToViewPublicProfile")}
+                            className="rounded-full border border-dashed border-black/25 bg-white px-4 py-2 text-center text-xs font-semibold text-gray-700 transition hover:border-black/40 hover:bg-black/5 sm:text-sm"
+                          >
+                            {t("common.publicProfile")}
+                          </Link>
+                        )}
+                        {isReady && user ? (
+                          <Link
+                            href={AppRoutes.bookArtist(artist.username)}
+                            className="rounded-full bg-black px-4 py-2 text-center text-xs font-semibold text-white transition hover:opacity-90 sm:text-sm"
+                          >
+                            {t("home.bookNow")}
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.bookArtist(artist.username))}`}
+                            title={t("home.notifications.loginToBook")}
+                            className="rounded-full border border-dashed border-black/25 bg-white px-4 py-2 text-center text-xs font-semibold text-gray-700 transition hover:border-black/40 hover:bg-black/5 sm:text-sm"
+                          >
+                            {t("home.bookNow")}
+                          </Link>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -280,7 +322,12 @@ export default function HomePage() {
               {rest.map((artist) => (
                 <Link
                   key={artist.id}
-                  href={`/profile/${artist.username}`}
+                  href={
+                    isReady && user
+                      ? AppRoutes.legacyProfile(artist.username)
+                      : `${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.legacyProfile(artist.username))}`
+                  }
+                  title={!isReady || !user ? t("home.loginToViewPublicProfile") : undefined}
                   className="flex items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition hover:border-pink-200 hover:shadow-md"
                 >
                   <div
@@ -317,7 +364,12 @@ export default function HomePage() {
               <p className="text-xs uppercase tracking-[0.2em] text-pink-400">{t("home.feedEyebrow")}</p>
               <h2 className="mt-1 text-2xl font-semibold sm:text-3xl">{t("home.modelsTitle")}</h2>
               <Link
-                href={AppRoutes.modelsIndex}
+                href={
+                  isReady && user
+                    ? AppRoutes.modelsIndex
+                    : `${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.modelsIndex)}`
+                }
+                title={!isReady || !user ? t("home.discoveryModelsLoginHint") : undefined}
                 className="mt-1 inline-block max-w-xl text-sm font-medium text-pink-600 underline-offset-4 hover:underline"
               >
                 {t("home.modelsSubtitle")}
@@ -369,8 +421,17 @@ export default function HomePage() {
                         {model.measurements || model.location || "—"}
                       </p>
                       <Link
-                        href={`/profile/${model.username}`}
-                        className="rounded-full border border-black/15 px-4 py-2 text-center text-xs font-semibold transition hover:bg-black hover:text-white sm:text-sm"
+                        href={
+                          isReady && user
+                            ? AppRoutes.legacyProfile(model.username)
+                            : `${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.legacyProfile(model.username))}`
+                        }
+                        title={!isReady || !user ? t("home.loginToViewPublicProfile") : undefined}
+                        className={
+                          isReady && user
+                            ? "rounded-full border border-black/15 px-4 py-2 text-center text-xs font-semibold transition hover:bg-black hover:text-white sm:text-sm"
+                            : "rounded-full border border-dashed border-black/25 bg-white px-4 py-2 text-center text-xs font-semibold text-gray-700 transition hover:border-black/40 hover:bg-black/5 sm:text-sm"
+                        }
                       >
                         {t("common.publicProfile")}
                       </Link>
@@ -400,8 +461,17 @@ export default function HomePage() {
                     <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                       <p className="text-sm font-medium text-gray-700">{t(`home.modelDemo${n}Rate`)}</p>
                       <Link
-                        href={`/models/${MODEL_DEMO_SLUGS[n - 1]}`}
-                        className="rounded-full border border-black/15 px-4 py-2 text-center text-xs font-semibold transition hover:bg-black hover:text-white sm:text-sm"
+                        href={
+                          isReady && user
+                            ? `/models/${MODEL_DEMO_SLUGS[n - 1]}`
+                            : `${AppRoutes.login}?next=${encodeURIComponent(`/models/${MODEL_DEMO_SLUGS[n - 1]}`)}`
+                        }
+                        title={!isReady || !user ? t("home.loginToViewModelSpotlight") : undefined}
+                        className={
+                          isReady && user
+                            ? "rounded-full border border-black/15 px-4 py-2 text-center text-xs font-semibold transition hover:bg-black hover:text-white sm:text-sm"
+                            : "rounded-full border border-dashed border-black/25 bg-white px-4 py-2 text-center text-xs font-semibold text-gray-700 transition hover:border-black/40 hover:bg-black/5 sm:text-sm"
+                        }
                       >
                         {t("home.featuredDemoLearnMore")}
                       </Link>
@@ -422,7 +492,12 @@ export default function HomePage() {
               {modelsRest.map((model) => (
                 <Link
                   key={model.id}
-                  href={`/profile/${model.username}`}
+                  href={
+                    isReady && user
+                      ? AppRoutes.legacyProfile(model.username)
+                      : `${AppRoutes.login}?next=${encodeURIComponent(AppRoutes.legacyProfile(model.username))}`
+                  }
+                  title={!isReady || !user ? t("home.loginToViewPublicProfile") : undefined}
                   className="flex items-center gap-4 rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition hover:border-pink-200 hover:shadow-md"
                 >
                   <div

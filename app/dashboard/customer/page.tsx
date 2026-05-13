@@ -58,13 +58,8 @@ function CustomerBookingStats() {
   }, [user]);
 
   const counts = useMemo(() => {
-    const c: Record<BookingStatus, number> = {
-      pending: 0,
-      confirmed: 0,
-      declined: 0,
-      cancelled: 0,
-      completed: 0,
-    };
+    const c = {} as Record<BookingStatus, number>;
+    for (const s of BOOKING_STATUSES) c[s] = 0;
     for (const b of bookings) {
       c[b.status] += 1;
     }

@@ -13,6 +13,7 @@ import { Notice } from "@/components/ui/notice";
 import { getBookingsForArtist, updateBookingStatus } from "@/lib/booking-storage";
 import { getUsers } from "@/lib/auth-storage";
 import { Booking, BookingStatus } from "@/lib/booking-types";
+import { BookingRequestMeta } from "@/components/booking/booking-request-meta";
 
 export default function ArtistBookingsPage() {
   const { t, language } = useLanguage();
@@ -89,6 +90,7 @@ export default function ArtistBookingsPage() {
                         minute: "2-digit",
                       })}
                     </p>
+                    <BookingRequestMeta booking={b} />
                     {b.notes ? <p className="mt-2 text-xs text-gray-600">{b.notes}</p> : null}
 
                     {b.status === "pending" && user ? (
@@ -107,12 +109,30 @@ export default function ArtistBookingsPage() {
 
                     {b.status === "confirmed" && user ? (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <AppButton onClick={() => handleStatus(b.id, "completed")}>
-                          {t("booking.actions.complete")}
+                        <AppButton onClick={() => handleStatus(b.id, "service_done")}>
+                          {t("booking.actions.markServiceDone")}
                         </AppButton>
                         <AppButton variant="secondary" onClick={() => handleStatus(b.id, "cancelled")}>
                           {t("booking.actions.cancel")}
                         </AppButton>
+                      </div>
+                    ) : null}
+
+                    {b.status === "service_done" || b.status === "awaiting_feedback" ? (
+                      <p className="mt-3 text-xs text-gray-600">{t("booking.artistFlowWaitingCustomer")}</p>
+                    ) : null}
+
+                    {b.status === "completed" ? (
+                      <div className="mt-3 rounded-xl border border-black/5 bg-white p-3 text-xs text-gray-700">
+                        <p className="font-semibold text-black">{t("booking.customerReviewOnCard")}</p>
+                        {b.customerRating != null ? (
+                          <p className="mt-1">
+                            ★ {b.customerRating}/5
+                            {b.customerFeedback ? ` — ${b.customerFeedback}` : ""}
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-gray-500">—</p>
+                        )}
                       </div>
                     ) : null}
                   </li>

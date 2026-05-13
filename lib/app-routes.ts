@@ -23,7 +23,7 @@ export const AppRoutes = {
   /** Public discovery & profiles */
   artistsIndex: "/artists",
   artistProfile: (username: string) => `/artists/${encodeURIComponent(username)}`,
-  /** Public model directory (`/models/[slug]` remains showcase samples) */
+  /** Public makeup-model directory (`/models/[slug]` demo showcase) */
   modelsIndex: "/models",
   /** Legacy public profile (keep until /@username or /artists/* migration) */
   legacyProfile: (username: string) => `/profile/${encodeURIComponent(username)}`,

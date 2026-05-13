@@ -63,17 +63,23 @@ export function createBooking(input: CreateBookingInput): Booking {
 
 type StatusUpdateResult =
   | { ok: true }
-  | { ok: false; messageKey: "booking.errors.notFound" | "booking.errors.invalidTransition" };
+  | {
+      ok: false;
+      messageKey:
+        | "booking.errors.notFound"
+        | "booking.errors.invalidTransition"
+        | "booking.errors.invalidReview";
+    };
 
 function canCustomerSetStatus(from: BookingStatus, to: BookingStatus): boolean {
+  if (to === "awaiting_feedback") return from === "service_done";
   if (to !== "cancelled") return false;
   return from === "pending" || from === "confirmed";
 }
 
 function canArtistSetStatus(from: BookingStatus, to: BookingStatus): boolean {
-  if (from === "pending" && (to === "confirmed" || to === "declined" || to === "cancelled"))
-    return true;
-  if (from === "confirmed" && (to === "completed" || to === "cancelled")) return true;
+  if (from === "pending" && (to === "confirmed" || to === "declined" || to === "cancelled")) return true;
+  if (from === "confirmed" && (to === "service_done" || to === "cancelled")) return true;
   return false;
 }
 
@@ -107,6 +113,42 @@ export function updateBookingStatus(
   }
 
   bookings[index] = { ...booking, status: next };
+  writeBookings(bookings);
+  return { ok: true };
+}
+
+export function submitBookingFeedback(
+  bookingId: string,
+  actor: { id: string; role: UserRole },
+  input: { rating: number; feedback: string },
+): StatusUpdateResult {
+  if (actor.role !== "customer") {
+    return { ok: false, messageKey: "booking.errors.invalidTransition" };
+  }
+  const rating = Number(input.rating);
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    return { ok: false, messageKey: "booking.errors.invalidReview" };
+  }
+
+  const bookings = readBookings();
+  const index = bookings.findIndex((b) => b.id === bookingId);
+  if (index === -1) return { ok: false, messageKey: "booking.errors.notFound" };
+
+  const booking = bookings[index];
+  if (booking.customerId !== actor.id) {
+    return { ok: false, messageKey: "booking.errors.invalidTransition" };
+  }
+  if (booking.status !== "awaiting_feedback") {
+    return { ok: false, messageKey: "booking.errors.invalidTransition" };
+  }
+
+  bookings[index] = {
+    ...booking,
+    status: "completed",
+    customerRating: Math.round(rating),
+    customerFeedback: input.feedback.trim(),
+    reviewedAt: new Date().toISOString(),
+  };
   writeBookings(bookings);
   return { ok: true };
 }

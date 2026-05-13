@@ -1,4 +1,4 @@
-/** Slugs for showcase demo models (Models section when no public profiles). */
+/** Slugs for showcase demo makeup models (directory when no public profiles). */
 export const MODEL_DEMO_SLUGS = ["linh-nguyen-editorial", "mai-pham-commercial", "hana-le-fashion"] as const;
 
 export type ModelDemoSlug = (typeof MODEL_DEMO_SLUGS)[number];

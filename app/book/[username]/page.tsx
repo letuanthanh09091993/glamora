@@ -10,11 +10,16 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
 import { getUserByUsername } from "@/lib/auth-storage";
 import { UserAccount } from "@/lib/auth-types";
+import {
+  featuredDemoArtistDisplayName,
+  isFeaturedDemoSlug,
+  resolveFeaturedDemoArtist,
+} from "@/lib/featured-demo-profiles";
 
 export default function BookArtistPage() {
   const params = useParams<{ username: string }>();
   const { user, isReady } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [artist, setArtist] = useState<UserAccount | null | undefined>(undefined);
 
   useEffect(() => {
@@ -22,8 +27,9 @@ export default function BookArtistPage() {
       setArtist(null);
       return;
     }
-    setArtist(getUserByUsername(params.username));
-  }, [params.username]);
+    const raw = decodeURIComponent(params.username);
+    setArtist(getUserByUsername(raw) ?? resolveFeaturedDemoArtist(raw, language));
+  }, [params.username, language]);
 
   if (!isReady) {
     return (
@@ -131,13 +137,25 @@ export default function BookArtistPage() {
     );
   }
 
+  const artistDisplayName =
+    artist && isFeaturedDemoSlug(artist.username)
+      ? featuredDemoArtistDisplayName(artist.username, language) ?? artist.username
+      : artist?.username ?? "";
+
+  const artistProfileHref =
+    artist && isFeaturedDemoSlug(artist.username)
+      ? `/spotlight/${encodeURIComponent(artist.username)}`
+      : artist
+        ? `/profile/${encodeURIComponent(artist.username)}`
+        : "/";
+
   return (
     <main className="min-h-screen bg-[#fdf8f6] p-4 sm:p-6">
       <div className="mx-auto max-w-2xl rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm sm:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-pink-500">{t("booking.title")}</p>
-            <h1 className="text-3xl font-bold text-black">{artist.username}</h1>
+            <h1 className="text-3xl font-bold text-black">{artistDisplayName}</h1>
             <p className="mt-2 text-sm text-gray-600">{t("booking.subtitle")}</p>
           </div>
         </div>
@@ -147,7 +165,7 @@ export default function BookArtistPage() {
         </div>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link href={`/profile/${artist.username}`}>
+          <Link href={artistProfileHref}>
             <AppButton variant="secondary">{t("booking.backToProfile")}</AppButton>
           </Link>
           <Link href="/dashboard/customer/bookings">

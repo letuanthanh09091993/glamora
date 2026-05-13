@@ -46,14 +46,6 @@ export function DashboardShell({ title, children }: { title: string; children: R
             <Link className="rounded-full px-4 py-2 text-sm hover:bg-black/5" href="/">
               {t("dashboard.navHome")}
             </Link>
-            {user.role === "customer" ? (
-              <Link
-                className="rounded-full px-4 py-2 text-sm hover:bg-black/5"
-                href="/dashboard/customer/bookings"
-              >
-                {t("booking.navLink")}
-              </Link>
-            ) : null}
             {user.role === "makeup_artist" ? (
               <Link
                 className="rounded-full px-4 py-2 text-sm hover:bg-black/5"

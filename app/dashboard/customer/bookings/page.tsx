@@ -13,6 +13,9 @@ import { Notice } from "@/components/ui/notice";
 import { getBookingsForCustomer, updateBookingStatus } from "@/lib/booking-storage";
 import { getUsers } from "@/lib/auth-storage";
 import { Booking, BookingStatus } from "@/lib/booking-types";
+import { AppRoutes } from "@/lib/app-routes";
+import { BookingRequestMeta } from "@/components/booking/booking-request-meta";
+import { BookingReviewForm } from "@/components/booking/booking-review-form";
 
 export default function CustomerBookingsPage() {
   const { t, language } = useLanguage();
@@ -89,7 +92,9 @@ export default function CustomerBookingsPage() {
                         minute: "2-digit",
                       })}
                     </p>
+                    <BookingRequestMeta booking={b} />
                     {b.notes ? <p className="mt-2 text-xs text-gray-600">{b.notes}</p> : null}
+
                     {(b.status === "pending" || b.status === "confirmed") && user ? (
                       <div className="mt-3">
                         <AppButton variant="secondary" onClick={() => handleStatus(b.id, "cancelled")}>
@@ -97,12 +102,37 @@ export default function CustomerBookingsPage() {
                         </AppButton>
                       </div>
                     ) : null}
+
+                    {b.status === "service_done" && user ? (
+                      <div className="mt-3">
+                        <AppButton onClick={() => handleStatus(b.id, "awaiting_feedback")}>
+                          {t("booking.actions.customerConfirmSession")}
+                        </AppButton>
+                      </div>
+                    ) : null}
+
+                    {b.status === "awaiting_feedback" && user ? (
+                      <BookingReviewForm bookingId={b.id} onSubmitted={() => setVersion((v) => v + 1)} />
+                    ) : null}
+
+                    {b.status === "completed" && b.customerRating != null ? (
+                      <div className="mt-3 rounded-xl border border-black/5 bg-white p-3 text-xs text-gray-700">
+                        <p className="font-semibold text-black">{t("booking.customerReviewOnCard")}</p>
+                        <p className="mt-1">
+                          ★ {b.customerRating}/5
+                          {b.customerFeedback ? ` — ${b.customerFeedback}` : ""}
+                        </p>
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
             )}
-            <Link className="mt-6 inline-flex text-sm font-semibold text-pink-600 hover:underline" href="/">
-              {t("home.heroPrimary")}
+            <Link
+              className="mt-6 inline-flex text-sm font-semibold text-pink-600 hover:underline"
+              href={AppRoutes.artistsIndex}
+            >
+              {t("booking.goToArtistDirectory")}
             </Link>
           </div>
         </div>

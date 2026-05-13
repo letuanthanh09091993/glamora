@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Booking } from "@/lib/booking-types";
+import { BookingRequestMeta } from "@/components/booking/booking-request-meta";
 import { useLanguage } from "@/components/providers/language-provider";
 import { BookingStatusBadge } from "@/components/booking/booking-status-badge";
 
@@ -183,6 +184,7 @@ export function BookingCalendar({ bookings, resolveName, variant = "customer" }:
                   {variant === "customer" ? t("booking.withArtist") : t("booking.withCustomer")}:{" "}
                   {variant === "customer" ? resolveName(b.artistId) : resolveName(b.customerId)}
                 </p>
+                <BookingRequestMeta booking={b} />
                 {b.notes ? <p className="mt-1 text-xs text-gray-600">{b.notes}</p> : null}
               </li>
             ))}

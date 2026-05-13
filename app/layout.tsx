@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     template: "%s · Glamora",
   },
   description:
-    "Glamora — sàn kết nối làm đẹp: chuyên viên trang điểm, khách hàng và mẫu ảnh chuyên nghiệp.",
+    "Glamora — sàn kết nối làm đẹp: chuyên viên trang điểm, khách hàng và mẫu makeup (nền cho portfolio & luyện tay nghề).",
 };
 
 export default function RootLayout({

@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
+import { AppButton } from "@/components/ui/app-button";
+import { Notice } from "@/components/ui/notice";
 import {
   getModelDemoIndex,
   isModelDemoSlug,
@@ -10,20 +13,54 @@ import {
   modelPortfolioImageUrls,
 } from "@/lib/model-demo-profiles";
 import { getRoleLabel } from "@/lib/i18n";
+import { AppRoutes } from "@/lib/app-routes";
 
 export default function ModelShowcasePage() {
   const params = useParams<{ slug: string }>();
   const { t, language } = useLanguage();
+  const { user, isReady } = useAuth();
   const slug = typeof params.slug === "string" ? params.slug : "";
+
+  if (!isReady) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#fdf8f6] p-6 text-sm text-gray-500">
+        {t("common.loading")}
+      </main>
+    );
+  }
 
   if (!isModelDemoSlug(slug)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#fdf8f6] p-6">
         <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
           <p className="text-lg font-semibold text-black">{t("modelSpotlight.notFound")}</p>
-          <Link className="mt-4 inline-block text-pink-600 hover:underline" href="/#explore-models">
+          <Link
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-black/20 bg-white px-6 py-3 text-sm font-semibold text-black shadow-sm transition hover:bg-black hover:text-white"
+            href={AppRoutes.modelsIndex}
+          >
+            <span aria-hidden>←</span>
             {t("modelSpotlight.backToModels")}
           </Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    const nextPath = `/models/${encodeURIComponent(slug)}`;
+    return (
+      <main className="min-h-screen bg-[#fdf8f6] p-4 sm:p-6">
+        <div className="mx-auto max-w-lg rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-bold text-black">{t("modelsPage.title")}</h1>
+          <Notice type="error" message={t("modelsPage.loginRequired")} />
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <Link href={`${AppRoutes.login}?next=${encodeURIComponent(nextPath)}`} className="inline-flex">
+              <AppButton>{t("common.login")}</AppButton>
+            </Link>
+            <Link href={AppRoutes.home} className="inline-flex">
+              <AppButton variant="secondary">{t("common.backHome")}</AppButton>
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -37,10 +74,11 @@ export default function ModelShowcasePage() {
     <main className="min-h-screen bg-[#fdf8f6] p-4 pb-16 sm:p-6">
       <div className="mx-auto max-w-5xl">
         <Link
-          href="/#explore-models"
-          className="inline-flex text-sm font-medium text-pink-600 underline-offset-4 hover:underline"
+          href={AppRoutes.modelsIndex}
+          className="inline-flex items-center gap-2 rounded-full border border-black/20 bg-white px-5 py-2.5 text-sm font-semibold text-black shadow-sm transition hover:bg-black hover:text-white"
         >
-          ← {t("modelSpotlight.backToModels")}
+          <span aria-hidden>←</span>
+          {t("modelSpotlight.backToModels")}
         </Link>
 
         <div className="mt-6 rounded-2xl border border-violet-100 bg-violet-50/80 px-4 py-3 text-sm text-gray-800">
