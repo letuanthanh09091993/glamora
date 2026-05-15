@@ -268,6 +268,7 @@ const translations = {
       resendSuccess: "Đã gửi lại email. Kiểm tra cả mục spam.",
       checkInbox: "Kiểm tra hộp thư đến và thư mục spam.",
       backLogin: "Quay lại đăng nhập",
+      footerLead: "Cần quay lại đăng nhập? ",
       loggingOut: "Đang đăng xuất…",
     },
     authForgot: {
@@ -277,6 +278,7 @@ const translations = {
       emailPlaceholder: "ban@example.com",
       submit: "Gửi liên kết đặt lại",
       backLogin: "Quay lại đăng nhập",
+      footerLead: "Đã nhớ mật khẩu? ",
       emailSent: "Nếu email tồn tại trong hệ thống, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu.",
       rateLimited: "Quá nhiều yêu cầu. Vui lòng thử lại sau.",
     },
@@ -290,6 +292,7 @@ const translations = {
       success: "Đã cập nhật mật khẩu. Bạn có thể đăng nhập.",
       invalidSession: "Liên kết không hợp lệ hoặc đã hết hạn. Yêu cầu gửi lại email đặt lại.",
       goLogin: "Đến trang đăng nhập",
+      footerLead: "Cần gửi lại liên kết đặt lại? ",
     },
     authSuspended: {
       title: "Tài khoản đã tạm khóa",
@@ -1138,6 +1141,7 @@ const translations = {
       resendSuccess: "Verification email sent. Check spam if you do not see it.",
       checkInbox: "Check your inbox and spam folder.",
       backLogin: "Back to login",
+      footerLead: "Need to return to login? ",
       loggingOut: "Signing out…",
     },
     authForgot: {
@@ -1147,6 +1151,7 @@ const translations = {
       emailPlaceholder: "you@example.com",
       submit: "Send reset link",
       backLogin: "Back to login",
+      footerLead: "Remember your password? ",
       emailSent: "If that email exists in Glamora, reset instructions are on the way.",
       rateLimited: "Too many requests. Please try again shortly.",
     },
@@ -1160,6 +1165,7 @@ const translations = {
       success: "Password updated. You can sign in now.",
       invalidSession: "This reset link is invalid or expired. Request a new one.",
       goLogin: "Go to login",
+      footerLead: "Need another reset link? ",
     },
     authSuspended: {
       title: "Account suspended",

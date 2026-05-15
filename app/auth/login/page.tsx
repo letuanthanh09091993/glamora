@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AppRoutes } from "@/lib/app-routes";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
@@ -67,6 +68,14 @@ export default function LoginPage() {
           onChange={setPassword}
           placeholder={t("login.passwordPlaceholder")}
         />
+        <div className="flex justify-end">
+          <Link
+            href={AppRoutes.forgotPassword}
+            className="text-sm font-medium text-pink-500 transition hover:underline"
+          >
+            {t("login.forgotPassword")}
+          </Link>
+        </div>
         {notice ? <Notice type={notice.type} message={notice.message} /> : null}
         <div className="flex items-center justify-between gap-3">
           <Link href="/" className="text-sm text-gray-500 hover:text-black">
