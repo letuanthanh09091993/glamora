@@ -58,18 +58,23 @@ export function ModelBookingForm({ artistId, modelId, onCreated }: ModelBookingF
 
     const end = new Date(start.getTime() + minutes * 60_000);
 
-    // Reuse booking storage: artist is the requester stored in customerId == artistId.
-    createBooking({
-      customerId: artistId,
-      artistId,
-      modelId,
-      startAt: start.toISOString(),
-      endAt: end.toISOString(),
-      notes: notes.trim(),
-      address: trimmedAddress,
-      contactPhone: trimmedPhone,
-      serviceType,
-    });
+    try {
+      await createBooking({
+        customerId: artistId,
+        artistId,
+        modelId,
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
+        notes: notes.trim(),
+        address: trimmedAddress,
+        contactPhone: trimmedPhone,
+        serviceType,
+      });
+    } catch {
+      setNotice({ type: "error", message: t("signup.fixErrors") });
+      setLoading(false);
+      return;
+    }
 
     setNotice({ type: "success", message: t("booking.successCreated") });
     setLoading(false);

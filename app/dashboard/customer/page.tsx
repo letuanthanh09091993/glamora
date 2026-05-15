@@ -9,7 +9,8 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { AppButton } from "@/components/ui/app-button";
 import { BookingStatusBadge } from "@/components/booking/booking-status-badge";
 import { getBookingsForCustomer } from "@/lib/booking-storage";
-import { getUsers } from "@/lib/auth-storage";
+import { getBrowserSupabase } from "@/lib/supabase/browser-client";
+import { fetchUsernameMap } from "@/lib/supabase/users-repository";
 import { BOOKING_STATUSES, type Booking, type BookingStatus } from "@/lib/booking-types";
 
 export default function CustomerDashboardPage() {
@@ -51,10 +52,17 @@ function CustomerBookingStats() {
   const { t, language } = useLanguage();
   const { user } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!user) return;
-    setBookings(getBookingsForCustomer(user.id));
+    void (async () => {
+      const sb = getBrowserSupabase();
+      const list = await getBookingsForCustomer(user.id);
+      setBookings(list);
+      const ids = [...new Set(list.map((b) => b.artistId))];
+      setNameMap(await fetchUsernameMap(sb, ids));
+    })();
   }, [user]);
 
   const counts = useMemo(() => {
@@ -66,11 +74,7 @@ function CustomerBookingStats() {
     return c;
   }, [bookings]);
 
-  const resolveArtist = useMemo(() => {
-    const users = getUsers();
-    const map = new Map(users.map((u) => [u.id, u.username]));
-    return (id: string) => map.get(id) ?? id;
-  }, [bookings]);
+  const resolveArtist = useMemo(() => (id: string) => nameMap.get(id) ?? id, [nameMap]);
 
   const recent = useMemo(() => bookings.slice(0, 10), [bookings]);
   const locale = language === "VN" ? "vi-VN" : "en-US";

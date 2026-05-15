@@ -25,8 +25,11 @@ export default function HomePage() {
   const [models, setModels] = useState<UserAccount[]>([]);
 
   useEffect(() => {
-    setArtists(listPublicMakeupArtists());
-    setModels(listPublicModels());
+    void (async () => {
+      const [a, m] = await Promise.all([listPublicMakeupArtists(), listPublicModels()]);
+      setArtists(a);
+      setModels(m);
+    })();
   }, []);
 
   const rest = artists.slice(3);
@@ -74,7 +77,7 @@ export default function HomePage() {
                     {t("home.navPersonalHome")}
                   </Link>
                   <HomeBookingBell />
-                  <button type="button" onClick={logout} className={shell.logoutButtonClass}>
+                  <button type="button" onClick={() => void logout()} className={shell.logoutButtonClass}>
                     {t("common.logout")}
                   </button>
                 </div>

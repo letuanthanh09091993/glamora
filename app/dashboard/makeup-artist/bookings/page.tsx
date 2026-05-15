@@ -15,7 +15,8 @@ import {
   getBookingsForArtist,
   updateBookingStatus,
 } from "@/lib/booking-storage";
-import { getUsers } from "@/lib/auth-storage";
+import { getBrowserSupabase } from "@/lib/supabase/browser-client";
+import { fetchUsernameMap } from "@/lib/supabase/users-repository";
 import { BOOKING_SERVICE_TYPES, Booking, BookingStatus } from "@/lib/booking-types";
 import { BookingRequestMeta } from "@/components/booking/booking-request-meta";
 import { AppRoutes } from "@/lib/app-routes";
@@ -164,6 +165,8 @@ export default function ArtistBookingsPage() {
   const { user } = useAuth();
   const pathname = usePathname();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [completedHistory, setCompletedHistory] = useState<Booking[]>([]);
+  const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [pipelineTab, setPipelineTab] = useState<
@@ -172,7 +175,20 @@ export default function ArtistBookingsPage() {
 
   useEffect(() => {
     if (!user) return;
-    setBookings(getBookingsForArtist(user.id).filter((b) => !(b.modelId && b.customerId === user.id)));
+    void (async () => {
+      const sb = getBrowserSupabase();
+      const raw = await getBookingsForArtist(user.id);
+      const filtered = raw.filter((b) => !(b.modelId && b.customerId === user.id));
+      setBookings(filtered);
+      const hist = await getArtistCompletedClientBookings(user.id);
+      setCompletedHistory(hist);
+      const ids = [
+        ...new Set(
+          [...filtered, ...hist].flatMap((b) => [b.customerId, b.modelId, b.artistId].filter(Boolean) as string[]),
+        ),
+      ];
+      setNameMap(await fetchUsernameMap(sb, ids));
+    })();
   }, [user, version]);
 
   useEffect(() => {
@@ -196,16 +212,7 @@ export default function ArtistBookingsPage() {
     };
   }, [pathname, version]);
 
-  const completedHistory = useMemo(() => {
-    if (!user) return [];
-    return getArtistCompletedClientBookings(user.id);
-  }, [user, version]);
-
-  const resolveName = useMemo(() => {
-    const users = getUsers();
-    const map = new Map(users.map((u) => [u.id, u.username]));
-    return (id: string) => map.get(id) ?? id;
-  }, [bookings, version]);
+  const resolveName = useMemo(() => (id: string) => nameMap.get(id) ?? id, [nameMap]);
 
   const serviceTypeLabel = (b: Booking) => {
     const st = b.serviceType?.trim();
@@ -259,9 +266,9 @@ export default function ArtistBookingsPage() {
     [groups, completedHistory.length, t],
   );
 
-  function handleStatus(bookingId: string, next: BookingStatus) {
+  async function handleStatus(bookingId: string, next: BookingStatus) {
     if (!user) return;
-    const result = updateBookingStatus(bookingId, next, { id: user.id, role: user.role });
+    const result = await updateBookingStatus(bookingId, next, { id: user.id, role: user.role });
     if (!result.ok) {
       setNotice({ type: "error", message: t(result.messageKey) });
       return;

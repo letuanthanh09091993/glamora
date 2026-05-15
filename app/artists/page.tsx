@@ -121,7 +121,7 @@ export default function ArtistsIndexPage() {
   const catalog = isDemoMode ? demoSynthArtists : artists;
 
   useEffect(() => {
-    setArtists(listPublicMakeupArtists());
+    void listPublicMakeupArtists().then(setArtists);
   }, []);
 
   useEffect(() => {

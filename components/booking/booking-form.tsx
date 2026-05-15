@@ -34,7 +34,7 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
-    setPublicModels(listPublicModels());
+    void listPublicModels().then(setPublicModels);
   }, []);
 
   async function handleSubmit(e: FormEvent) {
@@ -65,17 +65,23 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
     }
 
     const end = new Date(start.getTime() + minutes * 60_000);
-    createBooking({
-      customerId,
-      artistId,
-      ...(optionalModelId ? { modelId: optionalModelId } : {}),
-      startAt: start.toISOString(),
-      endAt: end.toISOString(),
-      notes: notes.trim(),
-      address: trimmedAddress,
-      contactPhone: trimmedPhone,
-      serviceType,
-    });
+    try {
+      await createBooking({
+        customerId,
+        artistId,
+        ...(optionalModelId ? { modelId: optionalModelId } : {}),
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
+        notes: notes.trim(),
+        address: trimmedAddress,
+        contactPhone: trimmedPhone,
+        serviceType,
+      });
+    } catch {
+      setNotice({ type: "error", message: t("signup.fixErrors") });
+      setLoading(false);
+      return;
+    }
 
     setNotice({ type: "success", message: t("booking.successCreated") });
     setLoading(false);

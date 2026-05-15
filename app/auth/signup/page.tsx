@@ -15,6 +15,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { getRoleDescription, getRoleLabel } from "@/lib/i18n";
 
 type FormState = {
+  email: string;
   username: string;
   password: string;
   phoneNumber: string;
@@ -26,6 +27,7 @@ export default function SignUpPage() {
   const { signUp } = useAuth();
   const { t, language } = useLanguage();
   const [form, setForm] = useState<FormState>({
+    email: "",
     username: "",
     password: "",
     phoneNumber: "",
@@ -37,7 +39,10 @@ export default function SignUpPage() {
   );
 
   const errors = useMemo(() => {
+    const emailTrim = form.email.trim();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim);
     return {
+      email: !emailTrim ? t("signup.emailRequired") : !emailOk ? t("signup.emailInvalid") : "",
       username:
         form.username.trim().length < 3 ? t("signup.usernameMin") : "",
       password:
@@ -49,7 +54,7 @@ export default function SignUpPage() {
     };
   }, [form, t]);
 
-  const hasError = Boolean(errors.username || errors.password || errors.phoneNumber);
+  const hasError = Boolean(errors.email || errors.username || errors.password || errors.phoneNumber);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -81,6 +86,13 @@ export default function SignUpPage() {
       footerLabel={t("signup.footerLinkLabel")}
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
+        <AppInput
+          label={t("signup.email")}
+          value={form.email}
+          onChange={(value) => setForm((prev) => ({ ...prev, email: value }))}
+          placeholder={t("signup.emailPlaceholder")}
+          error={errors.email}
+        />
         <AppInput
           label={t("signup.username")}
           value={form.username}

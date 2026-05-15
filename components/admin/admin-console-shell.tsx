@@ -1,12 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { AppButton } from "@/components/ui/app-button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
+import { AppRoutes } from "@/lib/app-routes";
+
+function adminNavClass(pathname: string, href: string) {
+  const active =
+    href === AppRoutes.dashboardAdmin
+      ? pathname === AppRoutes.dashboardAdmin
+      : pathname.startsWith(href);
+  return active
+    ? "rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+    : "rounded-full px-3 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-white";
+}
 
 export function AdminConsoleShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const { user, logout } = useAuth();
   const { t } = useLanguage();
 
@@ -43,11 +56,28 @@ export function AdminConsoleShell({ children }: { children: ReactNode }) {
             >
               {t("dashboard.adminAccounts.exitToSite")}
             </Link>
-            <AppButton type="button" variant="secondary" size="sm" onClick={logout}>
+            <AppButton type="button" variant="secondary" size="sm" onClick={() => void logout()}>
               {t("common.logout")}
             </AppButton>
           </div>
         </div>
+        <nav className="mx-auto flex max-w-[1600px] flex-wrap gap-2 border-t border-slate-100 px-4 py-3 sm:px-6">
+          <Link href={AppRoutes.dashboardAdmin} className={adminNavClass(pathname, AppRoutes.dashboardAdmin)}>
+            {t("dashboard.adminNav.users")}
+          </Link>
+          <Link
+            href={AppRoutes.dashboardAdminBookings}
+            className={adminNavClass(pathname, AppRoutes.dashboardAdminBookings)}
+          >
+            {t("dashboard.adminNav.bookings")}
+          </Link>
+          <Link
+            href={AppRoutes.dashboardAdminReports}
+            className={adminNavClass(pathname, AppRoutes.dashboardAdminReports)}
+          >
+            {t("dashboard.adminNav.reports")}
+          </Link>
+        </nav>
       </header>
       <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8">{children}</main>
     </div>

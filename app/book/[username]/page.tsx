@@ -28,7 +28,10 @@ export default function BookArtistPage() {
       return;
     }
     const raw = decodeURIComponent(params.username);
-    setArtist(getUserByUsername(raw) ?? resolveFeaturedDemoArtist(raw, language));
+    void (async () => {
+      const found = await getUserByUsername(raw);
+      setArtist(found ?? resolveFeaturedDemoArtist(raw, language));
+    })();
   }, [params.username, language]);
 
   if (!isReady) {

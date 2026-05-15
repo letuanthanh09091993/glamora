@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { AppButton } from "@/components/ui/app-button";
 import { useLanguage } from "@/components/providers/language-provider";
@@ -95,9 +95,17 @@ export function DashboardShell({
   const headlineName = displayNameTrimmed || user.username;
   const showUsernameHandle = Boolean(displayNameTrimmed);
 
-  const artistStats = useMemo(() => {
-    if (user.role !== "makeup_artist") return null;
-    return getArtistDeliveredSessionStats(user.id);
+  const [artistStats, setArtistStats] = useState<{
+    sessionsDelivered: number;
+    uniqueCustomers: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (user.role !== "makeup_artist") {
+      setArtistStats(null);
+      return;
+    }
+    void getArtistDeliveredSessionStats(user.id).then(setArtistStats);
   }, [user.id, user.role, pathname]);
 
   return (
@@ -144,7 +152,7 @@ export function DashboardShell({
                 {t("booking.navLink")}
               </Link>
             ) : null}
-            <AppButton variant="secondary" onClick={logout}>
+            <AppButton variant="secondary" onClick={() => void logout()}>
               {t("common.logout")}
             </AppButton>
           </div>

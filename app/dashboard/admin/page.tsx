@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AdminConsoleShell } from "@/components/admin/admin-console-shell";
 import { RequirePermission } from "@/components/auth/require-permission";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -37,6 +37,28 @@ function shortId(id: string) {
   return `${id.slice(0, 8)}…`;
 }
 
+function verificationLabel(t: (key: string) => string, v?: string) {
+  switch (v) {
+    case "pending":
+      return t("dashboard.adminAccounts.vfyPending");
+    case "verified":
+      return t("dashboard.adminAccounts.vfyVerified");
+    case "rejected":
+      return t("dashboard.adminAccounts.vfyRejected");
+    case "none":
+    default:
+      return t("dashboard.adminAccounts.vfyNone");
+  }
+}
+
+type AdminAnalytics = {
+  totalUsers: number;
+  totalArtists: number;
+  totalBookings: number;
+  pendingVerifications: number;
+  activeUsers30d: number;
+};
+
 export default function AdminAccountsPage() {
   const { t, language } = useLanguage();
   const { user, refreshUser } = useAuth();
@@ -50,30 +72,50 @@ export default function AdminAccountsPage() {
     displayName: "",
     role: "customer" as UserRole,
     isPublicProfile: true,
+    accountStatus: "active" as NonNullable<UserAccount["accountStatus"]>,
+    artistVerificationStatus: "none" as NonNullable<UserAccount["artistVerificationStatus"]>,
+    artistVerificationNote: "",
   });
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const locale = language === "VN" ? "vi-VN" : "en-US";
 
+  const [allUsers, setAllUsers] = useState<UserAccount[]>([]);
+  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
+
+  useEffect(() => {
+    void getUsers().then(setAllUsers);
+  }, [version]);
+
+  useEffect(() => {
+    if (!user || user.role !== "admin") return;
+    void fetch("/api/admin/stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && typeof d.totalUsers === "number") setAnalytics(d as AdminAnalytics);
+      })
+      .catch(() => setAnalytics(null));
+  }, [user, version]);
+
   const rows = useMemo(() => {
-    const list = getUsers().slice();
+    const list = allUsers.slice();
     list.sort((a, b) => {
       const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return tb - ta || a.username.localeCompare(b.username);
     });
     return list;
-  }, [version]);
+  }, [allUsers]);
 
   const stats = useMemo(() => {
-    const list = getUsers();
+    const list = allUsers;
     const byRole = USER_ROLES.map((role) => ({
       role,
       count: list.filter((u) => u.role === role).length,
     }));
     return { total: list.length, byRole };
-  }, [version]);
+  }, [allUsers]);
 
   function openEdit(u: UserAccount) {
     setEditing(u);
@@ -84,6 +126,9 @@ export default function AdminAccountsPage() {
       displayName: u.displayName ?? "",
       role: u.role,
       isPublicProfile: u.isPublicProfile,
+      accountStatus: u.accountStatus ?? "active",
+      artistVerificationStatus: u.artistVerificationStatus ?? "none",
+      artistVerificationNote: u.artistVerificationNote ?? "",
     });
     setNewPassword("");
     setConfirmPassword("");
@@ -121,9 +166,12 @@ export default function AdminAccountsPage() {
       displayName: form.displayName.trim(),
       role: form.role,
       isPublicProfile: form.isPublicProfile,
+      accountStatus: form.accountStatus,
+      artistVerificationStatus: form.artistVerificationStatus,
+      artistVerificationNote: form.artistVerificationNote,
     };
 
-    const result = adminUpdateUserAccount(user.id, editing.id, patch);
+    const result = await adminUpdateUserAccount(user.id, editing.id, patch);
     if (!result.ok) {
       setNotice({ type: "error", message: t(result.messageKey) });
       return;
@@ -148,13 +196,13 @@ export default function AdminAccountsPage() {
     closeEdit();
   }
 
-  function handleDelete(target: UserAccount) {
+  async function handleDelete(target: UserAccount) {
     if (!user) return;
     const confirmed = window.confirm(
       t("dashboard.adminAccounts.deleteConfirm").replace("{name}", target.username),
     );
     if (!confirmed) return;
-    const result = adminDeleteUser(user.id, target.id);
+    const result = await adminDeleteUser(user.id, target.id);
     setNotice({ type: result.ok ? "success" : "error", message: t(result.messageKey) });
     if (result.ok) {
       refreshUser();
@@ -177,6 +225,30 @@ export default function AdminAccountsPage() {
             {t("dashboard.adminAccounts.environmentBadge")}
           </span>
         </div>
+
+        {analytics ? (
+          <section className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {(
+              [
+                ["totalUsers", analytics.totalUsers],
+                ["totalArtists", analytics.totalArtists],
+                ["totalBookings", analytics.totalBookings],
+                ["pendingVerifications", analytics.pendingVerifications],
+                ["activeUsers30d", analytics.activeUsers30d],
+              ] as const
+            ).map(([key, val]) => (
+              <div
+                key={key}
+                className="rounded-xl border border-rose-100 bg-gradient-to-br from-white to-rose-50/80 p-4 shadow-sm ring-1 ring-rose-100/60"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-900/70">
+                  {t(`dashboard.adminAnalytics.${key}`)}
+                </p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{val}</p>
+              </div>
+            ))}
+          </section>
+        ) : null}
 
         <section className="mb-8">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
@@ -230,7 +302,7 @@ export default function AdminAccountsPage() {
           <h2 className="text-base font-semibold text-slate-900">{t("dashboard.adminAccounts.sectionDirectoryTitle")}</h2>
           <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[960px] border-collapse text-left text-sm">
+              <table className="w-full min-w-[1280px] border-collapse text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                     <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colInternalId")}</th>
@@ -239,6 +311,11 @@ export default function AdminAccountsPage() {
                     <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colRole")}</th>
                     <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colPhone")}</th>
                     <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colEmail")}</th>
+                    <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colAuthEmail")}</th>
+                    <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colEmailVerified")}</th>
+                    <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colLastLogin")}</th>
+                    <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colAccountStatus")}</th>
+                    <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colArtistVerification")}</th>
                     <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colPublic")}</th>
                     <th className="px-3 py-2.5">{t("dashboard.adminAccounts.colJoined")}</th>
                     <th className="px-3 py-2.5 text-right">{t("dashboard.adminAccounts.colActions")}</th>
@@ -256,8 +333,27 @@ export default function AdminAccountsPage() {
                       </td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-slate-800">{getRoleLabel(language, u.role)}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-slate-800">{u.phoneNumber}</td>
-                      <td className="max-w-[160px] px-3 py-2.5 text-slate-700">
+                      <td className="max-w-[140px] px-3 py-2.5 text-slate-700">
                         <span className="line-clamp-2 break-all">{u.email?.trim() || "—"}</span>
+                      </td>
+                      <td className="max-w-[140px] px-3 py-2.5 text-slate-700">
+                        <span className="line-clamp-2 break-all">{u.authLoginEmail?.trim() || "—"}</span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-xs text-slate-700">
+                        {u.emailVerifiedAt
+                          ? t("dashboard.adminAccounts.statusEmailVerified")
+                          : t("dashboard.adminAccounts.statusEmailUnverified")}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-xs text-slate-600">
+                        {formatJoined(u.lastLoginAt, locale)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-xs text-slate-800">
+                        {u.accountStatus === "suspended"
+                          ? t("dashboard.adminAccounts.statusSuspended")
+                          : t("dashboard.adminAccounts.statusActive")}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-xs text-slate-800">
+                        {verificationLabel(t, u.artistVerificationStatus)}
                       </td>
                       <td className="px-3 py-2.5 text-slate-700">
                         {u.isPublicProfile ? t("dashboard.adminAccounts.yes") : t("dashboard.adminAccounts.no")}
@@ -360,6 +456,68 @@ export default function AdminAccountsPage() {
                     />
                     <span className="text-sm text-slate-800">{t("dashboard.adminAccounts.publicProfile")}</span>
                   </label>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 pt-6">
+                <h3 className="text-sm font-semibold text-slate-900">{t("dashboard.adminAccounts.sectionAccess")}</h3>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="admin-account-status">
+                      {t("dashboard.adminAccounts.accountStatusLabel")}
+                    </label>
+                    <select
+                      id="admin-account-status"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                      value={form.accountStatus}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          accountStatus: e.target.value as NonNullable<UserAccount["accountStatus"]>,
+                        }))
+                      }
+                    >
+                      <option value="active">{t("dashboard.adminAccounts.statusActive")}</option>
+                      <option value="suspended">{t("dashboard.adminAccounts.statusSuspended")}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="admin-artist-vfy">
+                      {t("dashboard.adminAccounts.artistVerificationLabel")}
+                    </label>
+                    <select
+                      id="admin-artist-vfy"
+                      disabled={form.role !== "makeup_artist"}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-50"
+                      value={form.artistVerificationStatus}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          artistVerificationStatus: e.target.value as NonNullable<
+                            UserAccount["artistVerificationStatus"]
+                          >,
+                        }))
+                      }
+                    >
+                      <option value="none">{t("dashboard.adminAccounts.vfyNone")}</option>
+                      <option value="pending">{t("dashboard.adminAccounts.vfyPending")}</option>
+                      <option value="verified">{t("dashboard.adminAccounts.vfyVerified")}</option>
+                      <option value="rejected">{t("dashboard.adminAccounts.vfyRejected")}</option>
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="admin-artist-note">
+                      {t("dashboard.adminAccounts.artistVerificationNoteLabel")}
+                    </label>
+                    <textarea
+                      id="admin-artist-note"
+                      rows={3}
+                      disabled={form.role !== "makeup_artist"}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:bg-slate-50"
+                      value={form.artistVerificationNote}
+                      onChange={(e) => setForm((f) => ({ ...f, artistVerificationNote: e.target.value }))}
+                    />
+                  </div>
                 </div>
               </div>
 

@@ -5,11 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import { ROLE_META } from "@/lib/role-meta";
 import { useLanguage } from "@/components/providers/language-provider";
+import { allowsSessionWithoutVerifiedEmail, AuthRoutes } from "@/lib/auth/rbac";
 
 export function RoleGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isReady } = useAuth();
+  const { user, isReady, isEmailVerified } = useAuth();
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -19,10 +20,24 @@ export function RoleGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    if (user.accountStatus === "suspended" && !pathname.startsWith(AuthRoutes.accountSuspended)) {
+      router.replace(AuthRoutes.accountSuspended);
+      return;
+    }
+
+    const needsEmailForThisShell =
+      (pathname.startsWith("/dashboard") || pathname.startsWith("/account")) &&
+      !allowsSessionWithoutVerifiedEmail(pathname);
+
+    if (!isEmailVerified && needsEmailForThisShell) {
+      router.replace(AuthRoutes.verifyEmail);
+      return;
+    }
+
     if (pathname === "/dashboard") {
       router.replace(ROLE_META[user.role].dashboardPath);
     }
-  }, [isReady, pathname, router, user]);
+  }, [isEmailVerified, isReady, pathname, router, user]);
 
   if (!isReady || !user) {
     return (

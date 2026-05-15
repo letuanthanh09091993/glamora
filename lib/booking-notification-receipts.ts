@@ -1,7 +1,7 @@
 "use client";
 
-import { listBookings } from "@/lib/booking-storage";
 import type { Booking } from "@/lib/booking-types";
+import { getBookingsForArtist, getBookingsForCustomer, getBookingsForModel } from "@/lib/booking-storage";
 
 const STORAGE_KEY = "glamora_booking_notif_receipts_v1";
 
@@ -47,15 +47,20 @@ function sortBookingsDesc(a: Booking, b: Booking) {
 }
 
 /** Artist: unread pending + unread awaiting_feedback (client confirmed session). */
-export function getArtistInboxBookings(artistUserId: string): Booking[] {
+export async function getArtistInboxBookings(artistUserId: string): Promise<Booking[]> {
   const receipts = readReceipts();
-  return listBookings()
+  const list = await getBookingsForArtist(artistUserId);
+  return list
     .filter((b) => {
       if (b.artistId !== artistUserId) return false;
-      // Incoming: customer booked artist.
-      if (b.status === "pending" && b.customerId !== artistUserId && !receipts[b.id]?.artistPendingSeen) return true;
-      // Outgoing: artist booked a model (requester stored as customerId == artist).
-      if (b.status === "pending" && b.customerId === artistUserId && b.modelId && !receipts[b.id]?.artistModelPendingSeen) {
+      if (b.status === "pending" && b.customerId !== artistUserId && !receipts[b.id]?.artistPendingSeen)
+        return true;
+      if (
+        b.status === "pending" &&
+        b.customerId === artistUserId &&
+        b.modelId &&
+        !receipts[b.id]?.artistModelPendingSeen
+      ) {
         return true;
       }
       if (b.status === "awaiting_feedback" && !receipts[b.id]?.artistAwaitingFeedbackSeen) return true;
@@ -65,9 +70,10 @@ export function getArtistInboxBookings(artistUserId: string): Booking[] {
 }
 
 /** Customer: unread confirmed + unread service_done (artist marked done). */
-export function getCustomerInboxBookings(customerUserId: string): Booking[] {
+export async function getCustomerInboxBookings(customerUserId: string): Promise<Booking[]> {
   const receipts = readReceipts();
-  return listBookings()
+  const list = await getBookingsForCustomer(customerUserId);
+  return list
     .filter((b) => {
       if (b.customerId !== customerUserId) return false;
       if (b.status === "confirmed" && !receipts[b.id]?.customerConfirmedSeen) return true;
@@ -78,9 +84,10 @@ export function getCustomerInboxBookings(customerUserId: string): Booking[] {
 }
 
 /** Model: unread pending requests (artist booked model). */
-export function getModelInboxBookings(modelUserId: string): Booking[] {
+export async function getModelInboxBookings(modelUserId: string): Promise<Booking[]> {
   const receipts = readReceipts();
-  return listBookings()
+  const list = await getBookingsForModel(modelUserId);
+  return list
     .filter((b) => {
       if (b.modelId !== modelUserId) return false;
       if (b.status === "pending" && !receipts[b.id]?.modelPendingSeen) return true;

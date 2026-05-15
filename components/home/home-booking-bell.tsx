@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
 import { AppRoutes } from "@/lib/app-routes";
-import { getUsers } from "@/lib/auth-storage";
+import { getBrowserSupabase } from "@/lib/supabase/browser-client";
+import { fetchUsernameMap } from "@/lib/supabase/users-repository";
 import {
   getArtistInboxBookings,
   getCustomerInboxBookings,
@@ -15,7 +16,6 @@ import {
   markModelInboxSeen,
 } from "@/lib/booking-notification-receipts";
 import type { Booking } from "@/lib/booking-types";
-import type { UserAccount } from "@/lib/auth-types";
 
 type HomeBookingBellProps = {
   buttonClassName?: string;
@@ -39,6 +39,8 @@ export function HomeBookingBell({ buttonClassName }: HomeBookingBellProps) {
   const [open, setOpen] = useState(false);
   const [tick, setTick] = useState(0);
   const [snapshot, setSnapshot] = useState<Booking[] | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(() => setTick((n) => n + 1), []);
@@ -48,18 +50,37 @@ export function HomeBookingBell({ buttonClassName }: HomeBookingBellProps) {
     return () => window.clearInterval(id);
   }, [refresh]);
 
-  const unreadCount = useMemo(() => {
-    if (!user) return 0;
-    if (user.role === "makeup_artist") return getArtistInboxBookings(user.id).length;
-    if (user.role === "customer") return getCustomerInboxBookings(user.id).length;
-    if (user.role === "model") return getModelInboxBookings(user.id).length;
-    return 0;
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+    void (async () => {
+      if (user.role === "makeup_artist") {
+        const list = await getArtistInboxBookings(user.id);
+        setUnreadCount(list.length);
+      } else if (user.role === "customer") {
+        const list = await getCustomerInboxBookings(user.id);
+        setUnreadCount(list.length);
+      } else if (user.role === "model") {
+        const list = await getModelInboxBookings(user.id);
+        setUnreadCount(list.length);
+      } else {
+        setUnreadCount(0);
+      }
+    })();
   }, [user, tick]);
 
-  const nameMap = useMemo(() => {
-    const users = getUsers();
-    return new Map(users.map((u: UserAccount) => [u.id, u.username]));
-  }, [tick]);
+  useEffect(() => {
+    if (!snapshot?.length) {
+      setNameMap(new Map());
+      return;
+    }
+    const ids = [
+      ...new Set(snapshot.flatMap((b) => [b.customerId, b.artistId, b.modelId].filter(Boolean) as string[])),
+    ];
+    void fetchUsernameMap(getBrowserSupabase(), ids).then(setNameMap);
+  }, [snapshot]);
 
   const closePanel = useCallback(() => {
     if (snapshot?.length) {
@@ -74,16 +95,18 @@ export function HomeBookingBell({ buttonClassName }: HomeBookingBellProps) {
 
   const openPanel = useCallback(() => {
     if (!user) return;
-    if (user.role === "makeup_artist") {
-      setSnapshot(getArtistInboxBookings(user.id));
-    } else if (user.role === "customer") {
-      setSnapshot(getCustomerInboxBookings(user.id));
-    } else if (user.role === "model") {
-      setSnapshot(getModelInboxBookings(user.id));
-    } else {
-      setSnapshot([]);
-    }
-    setOpen(true);
+    void (async () => {
+      if (user.role === "makeup_artist") {
+        setSnapshot(await getArtistInboxBookings(user.id));
+      } else if (user.role === "customer") {
+        setSnapshot(await getCustomerInboxBookings(user.id));
+      } else if (user.role === "model") {
+        setSnapshot(await getModelInboxBookings(user.id));
+      } else {
+        setSnapshot([]);
+      }
+      setOpen(true);
+    })();
   }, [user]);
 
   useEffect(() => {

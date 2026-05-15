@@ -7,6 +7,11 @@ export const AppRoutes = {
   home: "/",
   login: "/auth/login",
   signup: "/auth/signup",
+  verifyEmail: "/auth/verify-email",
+  forgotPassword: "/auth/forgot-password",
+  resetPassword: "/auth/reset-password",
+  authCallback: "/auth/callback",
+  accountSuspended: "/auth/account-suspended",
   account: "/account",
 
   /** Legacy dashboard entry (RoleGate redirects role → concrete dashboard) */
@@ -27,6 +32,8 @@ export const AppRoutes = {
   dashboardModelBookings: "/dashboard/model/bookings",
   dashboardArtistLookingModel: "/dashboard/artist-looking-model",
   dashboardAdmin: "/dashboard/admin",
+  dashboardAdminBookings: "/dashboard/admin/bookings",
+  dashboardAdminReports: "/dashboard/admin/reports",
 
   /** Public discovery & profiles */
   artistsIndex: "/artists",

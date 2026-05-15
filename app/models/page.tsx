@@ -124,7 +124,7 @@ export default function ModelsIndexPage() {
   const catalog = isDemoMode ? demoSynthModels : models;
 
   useEffect(() => {
-    setModels(listPublicModels());
+    void listPublicModels().then(setModels);
   }, []);
 
   useEffect(() => {

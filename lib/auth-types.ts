@@ -8,6 +8,10 @@ export const USER_ROLES = [
 
 export type UserRole = (typeof USER_ROLES)[number];
 
+export type AccountStatus = "active" | "suspended";
+
+export type ArtistVerificationStatus = "none" | "pending" | "verified" | "rejected";
+
 export type ServicePackageRow = {
   name: string;
   price: string;
@@ -30,7 +34,8 @@ export type PortfolioItem = {
 export type UserAccount = {
   id: string;
   username: string;
-  password: string;
+  /** Not used with Supabase Auth (passwords live in auth.users only). */
+  password?: string;
   phoneNumber: string;
   /** Contact email for recovery / notifications (optional). */
   email?: string;
@@ -68,9 +73,22 @@ export type UserAccount = {
   isPublicProfile: boolean;
   /** ISO timestamp when the account was created (optional for legacy rows). */
   createdAt?: string;
+  /** Directory / policy: suspended users cannot use protected app surfaces. */
+  accountStatus?: AccountStatus;
+  /** Makeup artist marketplace trust; non-artists stay `none`. */
+  artistVerificationStatus?: ArtistVerificationStatus;
+  /** Admin-only note when verification is rejected. */
+  artistVerificationNote?: string;
+  /** Mirrors Supabase `email_confirmed_at` (synced from auth.users). */
+  emailVerifiedAt?: string;
+  /** Mirrors Supabase `last_sign_in_at` (best-effort sync). */
+  lastLoginAt?: string;
+  /** Auth email (login identity); same as Supabase Auth email after migration. */
+  authLoginEmail?: string;
 };
 
 export type SignupPayload = {
+  email: string;
   username: string;
   password: string;
   phoneNumber: string;

@@ -15,15 +15,22 @@ import { getStablePortfolioItems } from "@/lib/portfolio-media";
 
 export default function PublicProfilePage() {
   const params = useParams<{ username: string }>();
-  const [profile, setProfile] = useState<UserAccount | null>(null);
+  const [profile, setProfile] = useState<UserAccount | null | undefined>(undefined);
   const { user } = useAuth();
   const { t, language } = useLanguage();
 
   useEffect(() => {
     if (!params.username) return;
-    const user = getUserByUsername(params.username);
-    setProfile(user);
+    void getUserByUsername(params.username).then(setProfile);
   }, [params.username]);
+
+  if (profile === undefined) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#fdf8f6] p-6 text-sm text-gray-500">
+        {t("common.loading")}
+      </main>
+    );
+  }
 
   if (!profile) {
     return (

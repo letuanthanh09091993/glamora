@@ -11,7 +11,8 @@ import { BookingStatusBadge } from "@/components/booking/booking-status-badge";
 import { AppButton } from "@/components/ui/app-button";
 import { Notice } from "@/components/ui/notice";
 import { getBookingsForCustomer, updateBookingStatus } from "@/lib/booking-storage";
-import { getUsers } from "@/lib/auth-storage";
+import { getBrowserSupabase } from "@/lib/supabase/browser-client";
+import { fetchUsernameMap } from "@/lib/supabase/users-repository";
 import { Booking, BookingStatus } from "@/lib/booking-types";
 import { AppRoutes } from "@/lib/app-routes";
 import { BookingRequestMeta } from "@/components/booking/booking-request-meta";
@@ -23,21 +24,24 @@ export default function CustomerBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [version, setVersion] = useState(0);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!user) return;
-    setBookings(getBookingsForCustomer(user.id));
+    void (async () => {
+      const sb = getBrowserSupabase();
+      const list = await getBookingsForCustomer(user.id);
+      setBookings(list);
+      const ids = [...new Set(list.map((b) => b.artistId))];
+      setNameMap(await fetchUsernameMap(sb, ids));
+    })();
   }, [user, version]);
 
-  const resolveName = useMemo(() => {
-    const users = getUsers();
-    const map = new Map(users.map((u) => [u.id, u.username]));
-    return (id: string) => map.get(id) ?? id;
-  }, [bookings, version]);
+  const resolveName = useMemo(() => (id: string) => nameMap.get(id) ?? id, [nameMap]);
 
-  function handleStatus(bookingId: string, next: BookingStatus) {
+  async function handleStatus(bookingId: string, next: BookingStatus) {
     if (!user) return;
-    const result = updateBookingStatus(bookingId, next, { id: user.id, role: user.role });
+    const result = await updateBookingStatus(bookingId, next, { id: user.id, role: user.role });
     if (!result.ok) {
       setNotice({ type: "error", message: t(result.messageKey) });
       return;

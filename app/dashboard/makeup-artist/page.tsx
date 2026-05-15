@@ -8,6 +8,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { AppButton } from "@/components/ui/app-button";
 import { useAuth } from "@/components/providers/auth-provider";
 import type { ServicePackageRow, UserAccount } from "@/lib/auth-types";
+import type { Booking } from "@/lib/booking-types";
 import { AppRoutes } from "@/lib/app-routes";
 import {
   averageCustomerRatingFromBookings,
@@ -25,9 +26,14 @@ export default function MakeupArtistDashboardPage() {
     return normalizeServicePackages(user.servicePackages ?? []);
   }, [user?.id, user?.servicePackages]);
 
-  const completedClientBookings = useMemo(() => {
-    if (!user) return [];
-    return getArtistCompletedClientBookings(user.id);
+  const [completedClientBookings, setCompletedClientBookings] = useState<Booking[]>([]);
+
+  useEffect(() => {
+    if (!user) {
+      setCompletedClientBookings([]);
+      return;
+    }
+    void getArtistCompletedClientBookings(user.id).then(setCompletedClientBookings);
   }, [user?.id]);
 
   const ratingDisplay = useMemo(() => {

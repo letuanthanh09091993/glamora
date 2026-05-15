@@ -3,6 +3,7 @@
 import {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -10,25 +11,29 @@ import {
 } from "react";
 import { UserAccount } from "@/lib/auth-types";
 import {
-  getCurrentUser,
-  login as loginStorage,
-  logout as logoutStorage,
-  signUp as signUpStorage,
+  login as loginWithSupabase,
+  logout as logoutSupabase,
+  signUp as signUpSupabase,
   updateCurrentUser,
 } from "@/lib/auth-storage";
+import { getBrowserSupabase } from "@/lib/supabase/browser-client";
+import { fetchUserAccountById } from "@/lib/supabase/users-repository";
 
 type AuthContextValue = {
   user: UserAccount | null;
   isReady: boolean;
-  login: (username: string, password: string) => Promise<{ ok: boolean; messageKey: string }>;
+  /** Supabase Auth email_confirmed_at present (source of truth for verification). */
+  isEmailVerified: boolean;
+  login: (email: string, password: string) => Promise<{ ok: boolean; messageKey: string }>;
   signUp: (payload: {
+    email: string;
     username: string;
     password: string;
     phoneNumber: string;
     role: UserAccount["role"];
   }) => Promise<{ ok: boolean; messageKey: string }>;
-  logout: () => void;
-  refreshUser: () => void;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   updateProfile: (partial: Partial<UserAccount>) => Promise<{ ok: boolean; messageKey: string }>;
 };
 
@@ -37,46 +42,89 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserAccount | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
 
-  const refreshUser = () => {
-    const current = getCurrentUser();
-    setUser(current);
-  };
+  const refreshUser = useCallback(async () => {
+    try {
+      const sb = getBrowserSupabase();
+      const {
+        data: { session },
+      } = await sb.auth.getSession();
+      if (!session?.user) {
+        setUser(null);
+        setIsEmailVerified(false);
+        return;
+      }
+      setIsEmailVerified(Boolean(session.user.email_confirmed_at));
+      const acc = await fetchUserAccountById(sb, session.user.id);
+      setUser(acc);
+    } catch {
+      setUser(null);
+      setIsEmailVerified(false);
+    }
+  }, []);
 
   useEffect(() => {
-    refreshUser();
-    setIsReady(true);
-  }, []);
+    let mounted = true;
+    let subscription: { unsubscribe: () => void } | undefined;
+
+    void (async () => {
+      try {
+        const sb = getBrowserSupabase();
+        await refreshUser();
+        if (!mounted) return;
+        setIsReady(true);
+        const { data } = sb.auth.onAuthStateChange(() => {
+          void refreshUser();
+        });
+        subscription = data.subscription;
+      } catch {
+        if (mounted) {
+          setUser(null);
+          setIsEmailVerified(false);
+          setIsReady(true);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
+  }, [refreshUser]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       isReady,
-      async login(username, password) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        const result = await loginStorage(username, password);
-        refreshUser();
+      isEmailVerified,
+      async login(email, password) {
+        const result = await loginWithSupabase(email, password);
+        await refreshUser();
         return result;
       },
       async signUp(payload) {
-        await new Promise((resolve) => setTimeout(resolve, 700));
-        const result = await signUpStorage(payload);
-        refreshUser();
+        const result = await signUpSupabase(payload);
+        await refreshUser();
         return result;
       },
-      logout() {
-        logoutStorage();
-        refreshUser();
+      async logout() {
+        try {
+          await logoutSupabase();
+        } catch {
+          /* missing env or network */
+        }
+        setUser(null);
+        setIsEmailVerified(false);
       },
       refreshUser,
       async updateProfile(partial) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        const result = updateCurrentUser(partial);
-        refreshUser();
+        const result = await updateCurrentUser(partial);
+        await refreshUser();
         return result;
       },
     }),
-    [isReady, user],
+    [isEmailVerified, isReady, refreshUser, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

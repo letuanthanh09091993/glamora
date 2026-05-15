@@ -1,68 +1,106 @@
 "use client";
 
-import { Booking, BookingStatus, CreateBookingInput } from "@/lib/booking-types";
+import { getBrowserSupabase } from "@/lib/supabase/browser-client";
+import type { Booking, BookingStatus, CreateBookingInput } from "@/lib/booking-types";
+import type { UserRole } from "@/lib/auth-types";
 
-/** Sessions where service was delivered (pipeline after confirmation). */
 const DELIVERED_STATUSES: BookingStatus[] = ["service_done", "awaiting_feedback", "completed"];
-import { UserRole } from "@/lib/auth-types";
-import { getUsers, saveUsers } from "@/lib/auth-storage";
 
-const BOOKINGS_KEY = "glamora_bookings_v1";
-
-function readBookings(): Booking[] {
-  if (typeof window === "undefined") return [];
-  const raw = window.localStorage.getItem(BOOKINGS_KEY);
-  if (!raw) return [];
-  try {
-    return JSON.parse(raw) as Booking[];
-  } catch {
-    return [];
-  }
+function mapBookingRow(row: Record<string, unknown>): Booking {
+  return {
+    id: String(row.id),
+    customerId: String(row.customer_id),
+    artistId: String(row.artist_id),
+    modelId: row.model_id ? String(row.model_id) : undefined,
+    startAt: String(row.start_at),
+    endAt: String(row.end_at),
+    notes: String(row.notes ?? ""),
+    address: row.address ? String(row.address) : undefined,
+    contactPhone: row.contact_phone ? String(row.contact_phone) : undefined,
+    serviceType: row.service_type ? String(row.service_type) : undefined,
+    status: row.status as BookingStatus,
+    createdAt: String(row.created_at),
+    customerRating:
+      row.customer_rating != null && row.customer_rating !== ""
+        ? Number(row.customer_rating)
+        : undefined,
+    customerFeedback: row.customer_feedback ? String(row.customer_feedback) : undefined,
+    reviewedAt: row.reviewed_at ? String(row.reviewed_at) : undefined,
+  };
 }
 
-function writeBookings(bookings: Booking[]) {
-  window.localStorage.setItem(BOOKINGS_KEY, JSON.stringify(bookings));
+function toInsertRow(input: CreateBookingInput, id: string, createdAt: string) {
+  return {
+    id,
+    customer_id: input.customerId,
+    artist_id: input.artistId,
+    model_id: input.modelId ?? null,
+    start_at: input.startAt,
+    end_at: input.endAt,
+    notes: input.notes,
+    address: input.address,
+    contact_phone: input.contactPhone,
+    service_type: input.serviceType,
+    status: "pending" as const,
+    created_at: createdAt,
+  };
 }
 
-function appendCustomerBookingId(customerId: string, bookingId: string) {
-  const users = getUsers();
-  const index = users.findIndex((u) => u.id === customerId);
-  if (index === -1) return;
-  const history = users[index].bookingHistory ?? [];
-  if (history.includes(bookingId)) return;
-  users[index] = { ...users[index], bookingHistory: [...history, bookingId] };
-  saveUsers(users);
+export async function getBookingsForCustomer(customerId: string): Promise<Booking[]> {
+  const sb = getBrowserSupabase();
+  const { data, error } = await sb
+    .from("bookings")
+    .select("*")
+    .eq("customer_id", customerId)
+    .order("start_at", { ascending: false });
+  if (error || !data) return [];
+  return data.map(mapBookingRow);
 }
 
-export function listBookings(): Booking[] {
-  return readBookings();
+export async function getBookingsForArtist(artistId: string): Promise<Booking[]> {
+  const sb = getBrowserSupabase();
+  const { data, error } = await sb
+    .from("bookings")
+    .select("*")
+    .eq("artist_id", artistId)
+    .order("start_at", { ascending: false });
+  if (error || !data) return [];
+  return data.map(mapBookingRow);
 }
 
-export function getBookingsForCustomer(customerId: string): Booking[] {
-  return readBookings()
-    .filter((b) => b.customerId === customerId)
-    .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+export async function getBookingsForModel(modelId: string): Promise<Booking[]> {
+  const sb = getBrowserSupabase();
+  const { data, error } = await sb
+    .from("bookings")
+    .select("*")
+    .eq("model_id", modelId)
+    .order("start_at", { ascending: false });
+  if (error || !data) return [];
+  return data.map(mapBookingRow);
 }
 
-export function getBookingsForArtist(artistId: string): Booking[] {
-  return readBookings()
-    .filter((b) => b.artistId === artistId)
-    .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
+/** Admin console: all bookings (RLS allows when caller is admin). */
+export async function getAllBookingsForAdmin(): Promise<Booking[]> {
+  const sb = getBrowserSupabase();
+  const { data, error } = await sb
+    .from("bookings")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error || !data) return [];
+  return data.map(mapBookingRow);
 }
 
-/** Khách đặt makeup với artist (không tính luồng artist đặt mẫu). */
-export function getArtistClientBookings(artistId: string): Booking[] {
-  return getBookingsForArtist(artistId).filter(
-    (b) => !(b.modelId && b.customerId === artistId),
-  );
+export async function getArtistClientBookings(artistId: string): Promise<Booking[]> {
+  const all = await getBookingsForArtist(artistId);
+  return all.filter((b) => !(b.modelId && b.customerId === artistId));
 }
 
-/** Buổi đã phục vụ + số khách (unique) từ các buổi đó. */
-export function getArtistDeliveredSessionStats(artistId: string): {
+export async function getArtistDeliveredSessionStats(artistId: string): Promise<{
   sessionsDelivered: number;
   uniqueCustomers: number;
-} {
-  const delivered = getArtistClientBookings(artistId).filter((b) =>
+}> {
+  const delivered = (await getArtistClientBookings(artistId)).filter((b) =>
     DELIVERED_STATUSES.includes(b.status),
   );
   return {
@@ -71,14 +109,12 @@ export function getArtistDeliveredSessionStats(artistId: string): {
   };
 }
 
-/** Client bookings marked completed, newest session first (excludes artist-as-customer model flow). */
-export function getArtistCompletedClientBookings(artistId: string): Booking[] {
-  return getArtistClientBookings(artistId)
+export async function getArtistCompletedClientBookings(artistId: string): Promise<Booking[]> {
+  return (await getArtistClientBookings(artistId))
     .filter((b) => b.status === "completed")
     .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
 }
 
-/** Mean customer star rating when at least one rated completed booking exists. */
 export function averageCustomerRatingFromBookings(bookings: Booking[]): number | null {
   const rated = bookings.filter((b) => b.customerRating != null && b.customerRating > 0);
   if (!rated.length) return null;
@@ -86,26 +122,16 @@ export function averageCustomerRatingFromBookings(bookings: Booking[]): number |
   return Math.round((sum / rated.length) * 10) / 10;
 }
 
-export function getBookingsForModel(modelId: string): Booking[] {
-  return readBookings()
-    .filter((b) => b.modelId === modelId)
-    .sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
-}
-
-export function createBooking(input: CreateBookingInput): Booking {
-  const bookings = readBookings();
-  const { modelId, ...rest } = input;
-  const booking: Booking = {
-    id: crypto.randomUUID(),
-    ...rest,
-    ...(modelId ? { modelId } : {}),
-    status: "pending",
-    createdAt: new Date().toISOString(),
-  };
-  bookings.push(booking);
-  writeBookings(bookings);
-  appendCustomerBookingId(input.customerId, booking.id);
-  return booking;
+export async function createBooking(input: CreateBookingInput): Promise<Booking> {
+  const sb = getBrowserSupabase();
+  const id = crypto.randomUUID();
+  const createdAt = new Date().toISOString();
+  const row = toInsertRow(input, id, createdAt);
+  const { data, error } = await sb.from("bookings").insert(row).select("*").single();
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create booking");
+  }
+  return mapBookingRow(data as Record<string, unknown>);
 }
 
 type StatusUpdateResult =
@@ -130,16 +156,16 @@ function canArtistSetStatus(from: BookingStatus, to: BookingStatus): boolean {
   return false;
 }
 
-export function updateBookingStatus(
+export async function updateBookingStatus(
   bookingId: string,
   next: BookingStatus,
   actor: { id: string; role: UserRole },
-): StatusUpdateResult {
-  const bookings = readBookings();
-  const index = bookings.findIndex((b) => b.id === bookingId);
-  if (index === -1) return { ok: false, messageKey: "booking.errors.notFound" };
+): Promise<StatusUpdateResult> {
+  const sb = getBrowserSupabase();
+  const { data: row, error: fetchErr } = await sb.from("bookings").select("*").eq("id", bookingId).maybeSingle();
+  if (fetchErr || !row) return { ok: false, messageKey: "booking.errors.notFound" };
 
-  const booking = bookings[index];
+  const booking = mapBookingRow(row as Record<string, unknown>);
   const from = booking.status;
 
   if (from === next) return { ok: true };
@@ -156,7 +182,6 @@ export function updateBookingStatus(
       return { ok: false, messageKey: "booking.errors.invalidTransition" };
     }
   } else if (actor.role === "makeup_artist" && booking.customerId === actor.id && booking.modelId) {
-    // Artist booked a model (artist is the requester stored in customerId).
     if (!canArtistSetStatus(from, next)) {
       return { ok: false, messageKey: "booking.errors.invalidTransition" };
     }
@@ -168,16 +193,16 @@ export function updateBookingStatus(
     return { ok: false, messageKey: "booking.errors.invalidTransition" };
   }
 
-  bookings[index] = { ...booking, status: next };
-  writeBookings(bookings);
+  const { error } = await sb.from("bookings").update({ status: next }).eq("id", bookingId);
+  if (error) return { ok: false, messageKey: "booking.errors.invalidTransition" };
   return { ok: true };
 }
 
-export function submitBookingFeedback(
+export async function submitBookingFeedback(
   bookingId: string,
   actor: { id: string; role: UserRole },
   input: { rating: number; feedback: string },
-): StatusUpdateResult {
+): Promise<StatusUpdateResult> {
   if (actor.role !== "customer") {
     return { ok: false, messageKey: "booking.errors.invalidTransition" };
   }
@@ -186,11 +211,11 @@ export function submitBookingFeedback(
     return { ok: false, messageKey: "booking.errors.invalidReview" };
   }
 
-  const bookings = readBookings();
-  const index = bookings.findIndex((b) => b.id === bookingId);
-  if (index === -1) return { ok: false, messageKey: "booking.errors.notFound" };
+  const sb = getBrowserSupabase();
+  const { data: row, error: fetchErr } = await sb.from("bookings").select("*").eq("id", bookingId).maybeSingle();
+  if (fetchErr || !row) return { ok: false, messageKey: "booking.errors.notFound" };
 
-  const booking = bookings[index];
+  const booking = mapBookingRow(row as Record<string, unknown>);
   if (booking.customerId !== actor.id) {
     return { ok: false, messageKey: "booking.errors.invalidTransition" };
   }
@@ -198,13 +223,17 @@ export function submitBookingFeedback(
     return { ok: false, messageKey: "booking.errors.invalidTransition" };
   }
 
-  bookings[index] = {
-    ...booking,
-    status: "completed",
-    customerRating: Math.round(rating),
-    customerFeedback: input.feedback.trim(),
-    reviewedAt: new Date().toISOString(),
-  };
-  writeBookings(bookings);
+  const reviewedAt = new Date().toISOString();
+  const { error } = await sb
+    .from("bookings")
+    .update({
+      status: "completed",
+      customer_rating: Math.round(rating),
+      customer_feedback: input.feedback.trim(),
+      reviewed_at: reviewedAt,
+    })
+    .eq("id", bookingId);
+
+  if (error) return { ok: false, messageKey: "booking.errors.invalidTransition" };
   return { ok: true };
 }

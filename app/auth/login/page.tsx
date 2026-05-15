@@ -12,9 +12,9 @@ import { useLanguage } from "@/components/providers/language-provider";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, refreshUser } = useAuth();
+  const { login } = useAuth();
   const { t } = useLanguage();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(
@@ -33,12 +33,11 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setNotice(null);
-    const result = await login(username, password);
+    const result = await login(email, password);
     setLoading(false);
     setNotice({ type: result.ok ? "success" : "error", message: t(result.messageKey) });
 
     if (result.ok) {
-      refreshUser();
       const params = new URLSearchParams(window.location.search);
       const next = params.get("next");
       const destination = next && next.startsWith("/") ? next : "/";
@@ -56,10 +55,10 @@ export default function LoginPage() {
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <AppInput
-          label={t("login.username")}
-          value={username}
-          onChange={setUsername}
-          placeholder={t("login.usernamePlaceholder")}
+          label={t("login.email")}
+          value={email}
+          onChange={setEmail}
+          placeholder={t("login.emailPlaceholder")}
         />
         <AppInput
           label={t("login.password")}

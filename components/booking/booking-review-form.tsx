@@ -22,12 +22,12 @@ export function BookingReviewForm({ bookingId, onSubmitted }: BookingReviewFormP
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!user) return;
     setLoading(true);
     setNotice(null);
-    const result = submitBookingFeedback(bookingId, { id: user.id, role: user.role }, { rating, feedback });
+    const result = await submitBookingFeedback(bookingId, { id: user.id, role: user.role }, { rating, feedback });
     if (!result.ok) {
       setNotice({ type: "error", message: t(result.messageKey) });
       setLoading(false);

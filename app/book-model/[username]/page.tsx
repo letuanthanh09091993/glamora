@@ -24,7 +24,7 @@ export default function BookModelPage() {
       return;
     }
     const raw = decodeURIComponent(params.username);
-    setModel(getUserByUsername(raw) ?? null);
+    void getUserByUsername(raw).then((u) => setModel(u ?? null));
   }, [params.username]);
 
   if (!isReady) {
