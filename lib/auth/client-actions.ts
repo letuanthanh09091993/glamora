@@ -1,5 +1,6 @@
 "use client";
 
+import { getPasswordResetRedirectUrl } from "@/lib/site-url";
 import { getBrowserSupabase } from "@/lib/supabase/browser-client";
 
 export async function resendSignupVerificationEmail(): Promise<{ ok: boolean; messageKey: string }> {
@@ -24,7 +25,7 @@ export async function requestPasswordResetEmail(email: string): Promise<{ ok: bo
   }
   const sb = getBrowserSupabase();
   const { error } = await sb.auth.resetPasswordForEmail(norm, {
-    redirectTo: `${window.location.origin}/auth/reset-password`,
+    redirectTo: getPasswordResetRedirectUrl(),
   });
   if (error) {
     const m = error.message.toLowerCase();
@@ -38,6 +39,14 @@ export async function updatePasswordAfterRecovery(newPassword: string): Promise<
   const trimmed = newPassword.trim();
   if (trimmed.length < 6) return { ok: false, messageKey: "authMessages.weakPassword" };
   const sb = getBrowserSupabase();
+  await sb.auth.initialize();
+  const {
+    data: { session },
+    error: sessionError,
+  } = await sb.auth.getSession();
+  if (sessionError || !session?.user) {
+    return { ok: false, messageKey: "authReset.invalidSession" };
+  }
   const { error } = await sb.auth.updateUser({ password: trimmed });
   if (error) {
     const m = error.message.toLowerCase();
