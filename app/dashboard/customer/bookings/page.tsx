@@ -16,6 +16,10 @@ import { Booking, BookingStatus } from "@/lib/booking-types";
 import { AppRoutes } from "@/lib/app-routes";
 import { BookingRequestMeta } from "@/components/booking/booking-request-meta";
 import { BookingReviewForm } from "@/components/booking/booking-review-form";
+import { AppCard } from "@/components/ui/app-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { BookingListCard } from "@/components/booking/booking-list-card";
+import { glamora } from "@/lib/ui/design-tokens";
 
 export default function CustomerBookingsPage() {
   const { t, language } = useLanguage();
@@ -59,14 +63,14 @@ export default function CustomerBookingsPage() {
 
         <div className="grid gap-6 lg:grid-cols-2">
           <BookingCalendar bookings={bookings} resolveName={resolveName} variant="customer" />
-          <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-sm sm:p-6">
-            <h2 className="text-lg font-semibold text-black">{t("booking.listTitle")}</h2>
+          <AppCard variant="elevated">
+            <h2 className={glamora.titleMd}>{t("booking.listTitle")}</h2>
             {bookings.length === 0 ? (
-              <p className="mt-4 text-sm text-gray-500">{t("booking.empty")}</p>
+              <EmptyState title={t("booking.empty")} className="mt-6" />
             ) : (
-              <ul className="mt-4 space-y-4">
+              <ul className="mt-6 space-y-4">
                 {bookings.map((b) => (
-                  <li key={b.id} className="rounded-2xl border border-black/10 bg-[#fdf8f6] p-4">
+                  <BookingListCard key={b.id}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <BookingStatusBadge status={b.status} />
                       <span className="text-xs text-gray-500">
@@ -126,17 +130,17 @@ export default function CustomerBookingsPage() {
                         </p>
                       </div>
                     ) : null}
-                  </li>
+                  </BookingListCard>
                 ))}
               </ul>
             )}
             <Link
-              className="mt-6 inline-flex text-sm font-semibold text-pink-600 hover:underline"
+              className="mt-6 inline-flex text-sm font-semibold text-[var(--glamora-rose)] hover:underline"
               href={AppRoutes.artistsIndex}
             >
               {t("booking.goToArtistDirectory")}
             </Link>
-          </div>
+          </AppCard>
         </div>
       </DashboardShell>
   );

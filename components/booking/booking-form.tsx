@@ -4,7 +4,10 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
 import { Notice } from "@/components/ui/notice";
+import { BookingFormProgress } from "@/components/booking/booking-form-progress";
+import { LoadingState } from "@/components/ui/loading-state";
 import { useLanguage } from "@/components/providers/language-provider";
+import { glamora } from "@/lib/ui/design-tokens";
 import type { AvailabilitySlot } from "@/lib/availability/availability-types";
 import { GLAMORA_TIMEZONE } from "@/lib/availability/timezone";
 import { listPublicModels } from "@/lib/auth-storage";
@@ -159,11 +162,15 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
     void loadSlots();
   }
 
+  const hasContact = Boolean(address.trim() && contactPhone.trim());
+
   return (
-    <form className="space-y-4" onSubmit={handleSubmit}>
+    <form className="space-y-6" onSubmit={handleSubmit}>
+      <BookingFormProgress hasSlot={Boolean(selectedSlot)} hasContact={hasContact} />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-gray-700">
+          <span className={glamora.fieldLabel}>
             {t("booking.dateLabel")}
           </span>
           <input
@@ -171,17 +178,17 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
             value={date}
             min={today}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+            className={glamora.field}
           />
         </label>
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-gray-700">
+          <span className={glamora.fieldLabel}>
             {t("booking.durationLabel")}
           </span>
           <select
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
-            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+            className={glamora.field}
           >
             {DURATION_OPTIONS.map((m) => (
               <option key={m} value={String(m)}>
@@ -193,15 +200,13 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
       </div>
 
       <div className="block">
-        <span className="mb-2 block text-sm font-medium text-gray-700">
+        <span className={glamora.fieldLabel}>
           {t("booking.slotsLabel")}
         </span>
         {slotsLoading ? (
-          <p className="rounded-2xl border border-black/10 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
-            {t("booking.slotsLoading")}
-          </p>
+          <LoadingState message={t("booking.slotsLoading")} className="py-8" />
         ) : availableSlots.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-black/15 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+          <p className={`rounded-2xl border border-dashed border-[var(--glamora-border)] bg-[var(--glamora-canvas-muted)] px-4 py-8 text-center text-sm text-[var(--glamora-muted)]`}>
             {t("booking.slotsEmpty")}
           </p>
         ) : (
@@ -254,13 +259,13 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
           onChange={setContactPhone}
         />
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-gray-700">
+          <span className={glamora.fieldLabel}>
             {t("booking.serviceTypeLabel")}
           </span>
           <select
             value={serviceType}
             onChange={(e) => setServiceType(e.target.value)}
-            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+            className={glamora.field}
           >
             {BOOKING_SERVICE_TYPES.map((id) => (
               <option key={id} value={id}>
@@ -292,19 +297,19 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
       ) : null}
 
       <label className="block">
-        <span className="mb-2 block text-sm font-medium text-gray-700">{t("booking.notesLabel")}</span>
+        <span className={glamora.fieldLabel}>{t("booking.notesLabel")}</span>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={4}
           placeholder={t("booking.notesPlaceholder")}
-          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+          className={glamora.textarea}
         />
       </label>
 
       {notice ? <Notice type={notice.type} message={notice.message} /> : null}
 
-      <AppButton type="submit" loading={loading} disabled={slotsLoading || !selectedSlot}>
+      <AppButton type="submit" size="lg" loading={loading} disabled={slotsLoading || !selectedSlot} className="w-full sm:w-auto">
         {t("booking.confirmBooking")}
       </AppButton>
     </form>

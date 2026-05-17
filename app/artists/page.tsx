@@ -6,9 +6,14 @@ import { listPublicMakeupArtists } from "@/lib/auth-storage";
 import { UserAccount } from "@/lib/auth-types";
 import { AppRoutes } from "@/lib/app-routes";
 import { FEATURED_DEMO_SLUGS } from "@/lib/featured-demo-profiles";
-import { AppLogoLink } from "@/components/ui/app-logo-link";
 import { AppButton } from "@/components/ui/app-button";
-import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import { PageShell, PageContainer } from "@/components/ui/page-shell";
+import { SiteHeader } from "@/components/ui/site-header";
+import { SectionHeader } from "@/components/ui/section-header";
+import { AppCard } from "@/components/ui/app-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ArtistMarketplaceCard } from "@/components/marketplace/artist-marketplace-card";
+import { glamora } from "@/lib/ui/design-tokens";
 import { useLanguage } from "@/components/providers/language-provider";
 import { t as translateT, type Language } from "@/lib/i18n";
 import {
@@ -206,27 +211,20 @@ export default function ArtistsIndexPage() {
     if (page !== safePage) setPage(safePage);
   }, [page, safePage]);
 
-  const selectClass =
-    "w-full min-h-[44px] rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm text-black outline-none transition focus:border-pink-400 focus:ring-2 focus:ring-pink-200/60";
+  const selectClass = glamora.field;
 
   const paginationSummaryKey = isDemoMode ? "artistsPage.paginationDemoSummary" : "artistsPage.paginationSummary";
 
   return (
-    <main className="min-h-screen bg-[#fdf8f6] text-[#2b2b2b]">
-      <header className="border-b border-black/5 bg-[#fdf8f6]/95 px-4 py-3 backdrop-blur sm:px-6 sm:py-4">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <AppLogoLink href={AppRoutes.home} />
-          <div className="flex shrink-0 items-center">
-            <span className="sr-only">{t("home.languageHint")}</span>
-            <LanguageSwitcher />
-          </div>
-        </div>
-      </header>
+    <PageShell>
+      <SiteHeader homeHref={AppRoutes.home} />
 
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        <p className="text-xs uppercase tracking-[0.2em] text-pink-400">{t("home.feedEyebrow")}</p>
-        <h1 className="mt-2 text-2xl font-semibold text-black sm:text-3xl">{t("artistsPage.title")}</h1>
-        <p className="mt-2 max-w-2xl text-sm text-gray-600">{t("artistsPage.subtitle")}</p>
+      <PageContainer className={`${glamora.sectionY} ${glamora.sectionGap}`}>
+        <SectionHeader
+          eyebrow={t("home.feedEyebrow")}
+          title={t("artistsPage.title")}
+          subtitle={t("artistsPage.subtitle")}
+        />
 
         {isDemoMode ? (
           <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-amber-200/70 bg-gradient-to-r from-amber-50/95 to-orange-50/40 px-4 py-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
@@ -240,12 +238,12 @@ export default function ArtistsIndexPage() {
           </div>
         ) : null}
 
-        <div className="mt-8 rounded-3xl border border-black/5 bg-white p-5 shadow-sm ring-1 ring-black/5 sm:p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-pink-500">{t("artistsPage.filtersEyebrow")}</p>
+        <AppCard variant="elevated" className="mt-2">
+          <p className={glamora.eyebrow}>{t("artistsPage.filtersEyebrow")}</p>
           <div className="mt-4 flex flex-col gap-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-12 md:items-end md:gap-5">
               <div className="md:col-span-5">
-                <label htmlFor="artist-search" className="mb-1.5 block text-xs font-medium text-gray-600">
+                <label htmlFor="artist-search" className={glamora.fieldLabel}>
                   {t("artistsPage.searchLabel")}
                 </label>
                 <input
@@ -254,7 +252,7 @@ export default function ArtistsIndexPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t("artistsPage.searchPlaceholder")}
-                  className="w-full min-h-[44px] rounded-2xl border border-black/10 bg-[#fdf8f6]/50 px-4 py-2.5 text-sm text-black outline-none transition placeholder:text-gray-400 focus:border-pink-400 focus:ring-2 focus:ring-pink-200/60"
+                  className={`${glamora.field} bg-[var(--glamora-canvas-muted)]/50`}
                   autoComplete="off"
                 />
               </div>
@@ -342,107 +340,49 @@ export default function ArtistsIndexPage() {
               </div>
             </div>
           </div>
-        </div>
+        </AppCard>
 
         {filteredSorted.length === 0 ? (
-          <div className="mt-10 rounded-[28px] border border-dashed border-black/15 bg-white/80 px-6 py-14 text-center text-gray-600">
-            <p className="font-medium text-black">{t("artistsPage.noResults")}</p>
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                setSortKey("rating_desc");
-                setMinRating("all");
-                setStyleFilter("all");
-                setDistrictFilter("all");
-              }}
-              className="mt-4 text-sm font-medium text-pink-600 underline-offset-4 hover:underline"
-            >
-              {t("artistsPage.clearFilters")}
-            </button>
-          </div>
+          <EmptyState
+            title={t("artistsPage.noResults")}
+            action={
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setSortKey("rating_desc");
+                  setMinRating("all");
+                  setStyleFilter("all");
+                  setDistrictFilter("all");
+                }}
+                className="text-sm font-semibold text-[var(--glamora-rose)] underline-offset-4 hover:underline"
+              >
+                {t("artistsPage.clearFilters")}
+              </button>
+            }
+          />
         ) : (
           <>
-            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {pageItems.map((artist) => {
                 const isDemoCard = artist.id.startsWith("demo-");
                 const demoSlot = isDemoCard ? demoSlotFromId(artist.id) : null;
                 return (
-                  <article
+                  <ArtistMarketplaceCard
                     key={artist.id}
-                    className="flex flex-col overflow-hidden rounded-[28px] bg-white shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-xl"
-                  >
-                    {isDemoCard && demoSlot ? (
-                      <div
-                        className={`relative aspect-[4/3] sm:aspect-[16/11] ${demoGradients[demoSlot - 1] ?? demoGradients[0]}`}
-                      >
-                        <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-gray-700 shadow-sm">
-                          {t("home.featuredDemoBadge")}
-                        </span>
-                      </div>
-                    ) : (
-                      <div
-                        className="aspect-[4/3] bg-pink-100 sm:aspect-[16/11]"
-                        style={
-                          artist.avatarUrl
-                            ? {
-                                backgroundImage: `url(${artist.avatarUrl})`,
-                                backgroundSize: "cover",
-                                backgroundPosition: "center",
-                              }
-                            : undefined
-                        }
-                      />
-                    )}
-
-                    <div className="flex flex-1 flex-col p-5 sm:p-6">
-                      <div className="flex items-start justify-between gap-2">
-                        <h2 className="text-lg font-semibold sm:text-xl">{artist.username}</h2>
-                        <span className="shrink-0 text-sm text-pink-500">★ {artist.rating?.toFixed(1) ?? "—"}</span>
-                      </div>
-
-                      <p className="mt-2 line-clamp-2 flex-1 text-sm text-gray-500">
-                        {(artist.specialties ?? []).join(" · ") || t("home.artistServices")}
-                      </p>
-                      {artist.location ? (
-                        <p className="mt-1.5 line-clamp-1 text-xs text-gray-400">{artist.location}</p>
-                      ) : null}
-
-                      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                        <p className="text-sm font-medium">{artist.pricing || t("home.fromPrice")}</p>
-                        <div className="flex flex-wrap gap-2">
-                          {isDemoCard && demoSlot ? (
-                            <Link
-                              href={`/spotlight/${FEATURED_DEMO_SLUGS[demoSlot - 1]}`}
-                              className="rounded-full border border-black/15 px-4 py-2 text-center text-xs font-semibold transition hover:bg-black hover:text-white sm:text-sm"
-                            >
-                              {t("common.publicProfile")}
-                            </Link>
-                          ) : (
-                            <>
-                              <Link
-                                href={AppRoutes.legacyProfile(artist.username)}
-                                className="rounded-full border border-black/15 px-4 py-2 text-center text-xs font-semibold transition hover:bg-black hover:text-white sm:text-sm"
-                              >
-                                {t("common.publicProfile")}
-                              </Link>
-                              <Link
-                                href={AppRoutes.bookArtist(artist.username)}
-                                className="rounded-full bg-black px-4 py-2 text-center text-xs font-semibold text-white transition hover:opacity-90 sm:text-sm"
-                              >
-                                {t("home.bookNow")}
-                              </Link>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </article>
+                    artist={artist}
+                    isDemo={isDemoCard}
+                    demoSlot={demoSlot ?? undefined}
+                    demoProfileHref={
+                      isDemoCard && demoSlot
+                        ? `/spotlight/${FEATURED_DEMO_SLUGS[demoSlot - 1]}`
+                        : undefined
+                    }
+                  />
                 );
               })}
             </div>
-
-            <div className="mt-10 flex flex-col items-stretch gap-4 border-t border-black/5 pt-8 sm:flex-row sm:items-center sm:justify-between">
+<div className="mt-10 flex flex-col items-stretch gap-4 border-t border-black/5 pt-8 sm:flex-row sm:items-center sm:justify-between">
               <AppButton
                 type="button"
                 variant="secondary"
@@ -467,7 +407,8 @@ export default function ArtistsIndexPage() {
             </div>
           </>
         )}
-      </div>
-    </main>
+      </PageContainer>
+    </PageShell>
   );
 }
+

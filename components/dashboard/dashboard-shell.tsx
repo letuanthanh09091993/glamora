@@ -9,7 +9,8 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { getArtistDeliveredSessionStats } from "@/lib/booking-storage";
 import { getRoleLabel } from "@/lib/i18n";
 import { AppRoutes } from "@/lib/app-routes";
-import { hasPermission } from "@/lib/permissions";
+import { DashboardNav } from "@/components/dashboard/dashboard-nav";
+import { glamora } from "@/lib/ui/design-tokens";
 
 function IconShowsProvided(props: { className?: string }) {
   return (
@@ -109,57 +110,25 @@ export function DashboardShell({
   const showUsernameHandle = Boolean(displayNameTrimmed);
 
   return (
-    <main className="min-h-screen bg-[#fdf8f6]">
-      <header className="border-b border-black/10 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-pink-500">{t("dashboard.eyebrow")}</p>
-            <h1 className="text-xl font-semibold text-black">{title}</h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link className="rounded-full px-4 py-2 text-sm hover:bg-black/5" href="/">
-              {t("dashboard.navHome")}
-            </Link>
-            {hasPermission(user.role, "canAccessAdmin") ? (
-              <Link
-                className="rounded-full px-4 py-2 text-sm hover:bg-black/5"
-                href={AppRoutes.dashboardAdmin}
-              >
-                {t("dashboard.adminAccounts.navLink")}
-              </Link>
-            ) : null}
-            {user.role === "makeup_artist" ? (
-              <>
-                <Link
-                  className="rounded-full px-4 py-2 text-sm hover:bg-black/5"
-                  href={AppRoutes.dashboardMakeupArtistBookings}
-                >
-                  {t("booking.navLink")}
-                </Link>
-                <Link
-                  className="rounded-full px-4 py-2 text-sm hover:bg-black/5"
-                  href={AppRoutes.dashboardMakeupArtistModelBookings}
-                >
-                  {t("booking.withModel")}
-                </Link>
-              </>
-            ) : null}
-            {user.role === "model" ? (
-              <Link
-                className="rounded-full px-4 py-2 text-sm hover:bg-black/5"
-                href={AppRoutes.dashboardModelBookings}
-              >
-                {t("booking.navLink")}
-              </Link>
-            ) : null}
-            <AppButton variant="secondary" onClick={() => void logout()}>
-              {t("common.logout")}
-            </AppButton>
+    <main className={glamora.page}>
+      <header className="border-b border-[var(--glamora-border)] bg-white/85 backdrop-blur-md">
+        <div className={`${glamora.container} py-4 sm:py-5`}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className={glamora.eyebrow}>{t("dashboard.eyebrow")}</p>
+              <h1 className={`mt-1 ${glamora.titleMd}`}>{title}</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <DashboardNav role={user.role} t={t} />
+              <AppButton variant="secondary" size="sm" onClick={() => void logout()}>
+                {t("common.logout")}
+              </AppButton>
+            </div>
           </div>
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <section className={`${glamora.container} py-8 sm:py-10`}>
         {!hideProfileCard ? (
         <div className="mb-6 overflow-hidden rounded-3xl border border-pink-100/90 bg-gradient-to-br from-white via-pink-50/40 to-rose-50/25 p-6 shadow-md ring-1 ring-black/[0.04]">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch lg:justify-between lg:gap-8">
@@ -282,3 +251,4 @@ export function DashboardShell({
     </main>
   );
 }
+

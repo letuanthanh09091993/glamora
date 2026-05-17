@@ -2,24 +2,32 @@
 
 import { ReactNode } from "react";
 import { useLanguage } from "@/components/providers/language-provider";
+import { buttonSizes } from "@/lib/ui/design-tokens";
 
 type AppButtonProps = {
   children: ReactNode;
   type?: "button" | "submit";
-  variant?: "primary" | "secondary";
-  /** Nút nhỏ gọn (padding & chữ nhỏ hơn). */
-  size?: "default" | "sm";
+  variant?: "primary" | "secondary" | "ghost";
+  size?: "sm" | "md" | "lg";
   loading?: boolean;
   disabled?: boolean;
   onClick?: () => void;
   className?: string;
 };
 
+const variantClass: Record<NonNullable<AppButtonProps["variant"]>, string> = {
+  primary:
+    "bg-black text-white shadow-sm hover:bg-black/90 hover:shadow-md active:scale-[0.98]",
+  secondary:
+    "border border-[var(--glamora-border)] bg-white text-black hover:border-black/25 hover:bg-[var(--glamora-canvas-muted)]",
+  ghost: "bg-transparent text-gray-700 hover:bg-black/[0.04]",
+};
+
 export function AppButton({
   children,
   type = "button",
   variant = "primary",
-  size = "default",
+  size = "md",
   loading,
   disabled,
   onClick,
@@ -27,19 +35,12 @@ export function AppButton({
 }: AppButtonProps) {
   const { t } = useLanguage();
 
-  const sizeClass =
-    size === "sm" ? "min-h-9 px-3.5 py-1.5 text-xs" : "px-6 py-3 text-sm";
-
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={loading || disabled}
-      className={`rounded-full font-semibold transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60 ${sizeClass} ${
-        variant === "primary"
-          ? "bg-black text-white hover:-translate-y-0.5 hover:opacity-90"
-          : "border border-black/20 bg-white text-black hover:bg-black hover:text-white"
-      } ${className}`}
+      className={`inline-flex items-center justify-center rounded-2xl font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-55 ${buttonSizes[size]} ${variantClass[variant]} ${className}`}
     >
       {loading ? t("common.pleaseWait") : children}
     </button>

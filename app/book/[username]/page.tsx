@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { BookingForm } from "@/components/booking/booking-form";
+import { BookingPageLayout } from "@/components/booking/booking-page-layout";
 import { Notice } from "@/components/ui/notice";
 import { AppButton } from "@/components/ui/app-button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { SectionHeader } from "@/components/ui/section-header";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
 import { isPublicDiscoverableMakeupArtist } from "@/lib/artist/public-artists";
@@ -36,11 +39,7 @@ export default function BookArtistPage() {
   }, [params.username, language]);
 
   if (!isReady) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#fdf8f6] p-6 text-sm text-gray-500">
-        {t("common.loading")}
-      </main>
-    );
+    return <LoadingState message={t("common.loading")} fullScreen />;
   }
 
   if (!user) {
@@ -82,11 +81,7 @@ export default function BookArtistPage() {
   }
 
   if (artist === undefined) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#fdf8f6] p-6 text-sm text-gray-500">
-        {t("common.loading")}
-      </main>
-    );
+    return <LoadingState message={t("common.loading")} fullScreen />;
   }
 
   if (!artist) {
@@ -161,29 +156,25 @@ export default function BookArtistPage() {
         : "/";
 
   return (
-    <main className="min-h-screen bg-[#fdf8f6] p-4 sm:p-6">
-      <div className="mx-auto max-w-2xl rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-pink-500">{t("booking.title")}</p>
-            <h1 className="text-3xl font-bold text-black">{artistDisplayName}</h1>
-            <p className="mt-2 text-sm text-gray-600">{t("booking.subtitle")}</p>
-          </div>
-        </div>
+    <BookingPageLayout>
+      <SectionHeader
+        eyebrow={t("booking.title")}
+        title={artistDisplayName}
+        subtitle={t("booking.subtitle")}
+      />
 
-        <div className="mt-8">
-          <BookingForm customerId={user.id} artistId={artist.id} />
-        </div>
-
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link href={artistProfileHref}>
-            <AppButton variant="secondary">{t("booking.backToProfile")}</AppButton>
-          </Link>
-          <Link href="/dashboard/customer/bookings">
-            <AppButton variant="secondary">{t("booking.customerDashboardTitle")}</AppButton>
-          </Link>
-        </div>
+      <div className="mt-8 border-t border-[var(--glamora-border)] pt-8">
+        <BookingForm customerId={user.id} artistId={artist.id} />
       </div>
-    </main>
+
+      <div className="mt-8 flex flex-wrap gap-3 border-t border-[var(--glamora-border)] pt-6">
+        <Link href={artistProfileHref}>
+          <AppButton variant="secondary">{t("booking.backToProfile")}</AppButton>
+        </Link>
+        <Link href="/dashboard/customer/bookings">
+          <AppButton variant="secondary">{t("booking.customerDashboardTitle")}</AppButton>
+        </Link>
+      </div>
+    </BookingPageLayout>
   );
 }

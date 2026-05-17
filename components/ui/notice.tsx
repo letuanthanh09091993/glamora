@@ -6,10 +6,11 @@ type NoticeProps = {
 export function Notice({ type, message }: NoticeProps) {
   return (
     <div
-      className={`rounded-2xl px-4 py-3 text-sm ${
+      role="alert"
+      className={`rounded-2xl border px-4 py-3 text-sm ${
         type === "success"
-          ? "bg-emerald-50 text-emerald-700"
-          : "bg-red-50 text-red-600"
+          ? "border-emerald-200/80 bg-emerald-50 text-emerald-800"
+          : "border-red-200/80 bg-red-50 text-red-700"
       }`}
     >
       {message}

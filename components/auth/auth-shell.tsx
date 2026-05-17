@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 import { useLanguage } from "@/components/providers/language-provider";
+import { glamora } from "@/lib/ui/design-tokens";
+import { AppLogoLink } from "@/components/ui/app-logo-link";
 
 export function AuthShell({
   title,
@@ -20,43 +22,46 @@ export function AuthShell({
   children: ReactNode;
 }) {
   const { t } = useLanguage();
+  const Box = "div" as const;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#fff7fc] via-[#fffaf5] to-[#fff] p-4 sm:p-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="grid overflow-hidden rounded-[2rem] border border-black/5 bg-white shadow-xl md:grid-cols-2">
-          <div className="hidden bg-[radial-gradient(circle_at_top,#f9dce8,transparent_55%),radial-gradient(circle_at_bottom_right,#f8e8e4,transparent_45%)] p-10 md:block">
-            <p className="text-xs uppercase tracking-[0.25em] text-pink-500">{t("authShell.eyebrow")}</p>
-            <h1 className="mt-4 text-4xl font-bold leading-tight text-black">
+    <main className={`${glamora.page} p-4 sm:p-8`}>
+      <Box className="mx-auto max-w-5xl">
+        <Box className={`grid overflow-hidden md:grid-cols-2 ${glamora.cardElevated}`}>
+          <Box className="hidden bg-[radial-gradient(circle_at_top,var(--glamora-rose-soft),transparent_55%),radial-gradient(circle_at_bottom_right,#f8e8e4,transparent_45%)] p-10 md:block">
+            <AppLogoLink href="/" className="mb-8 inline-block" />
+            <p className={glamora.eyebrow}>{t("authShell.eyebrow")}</p>
+            <h1 className="mt-4 text-4xl font-bold leading-tight tracking-tight text-black">
               {t("authShell.headlineLine1")}
               <br />
               {t("authShell.headlineLine2")}
             </h1>
-            <p className="mt-4 text-gray-600">
-              {t("authShell.description")}
-            </p>
-          </div>
-          <div className="p-6 sm:p-10">
-            <div className="mb-6 flex justify-end">
+            <p className={`mt-4 ${glamora.subtitle}`}>{t("authShell.description")}</p>
+          </Box>
+          <Box className="p-6 sm:p-10">
+            <Box className="mb-6 flex justify-end md:hidden">
+              <AppLogoLink href="/" />
+            </Box>
+            <Box className="mb-6 flex justify-end">
               <Link
                 href="/"
-                className="text-sm font-medium text-gray-500 transition hover:text-black"
+                className="text-sm font-medium text-[var(--glamora-muted)] transition hover:text-black"
               >
                 {t("common.backHome")}
               </Link>
-            </div>
-            <h2 className="text-3xl font-bold text-black">{title}</h2>
-            <p className="mt-2 text-sm text-gray-600">{subtitle}</p>
-            <div className="mt-8">{children}</div>
-            <p className="mt-6 text-sm text-gray-600">
+            </Box>
+            <h2 className={glamora.titleLg}>{title}</h2>
+            <p className={`mt-2 ${glamora.subtitle}`}>{subtitle}</p>
+            <Box className="mt-8">{children}</Box>
+            <p className={`mt-6 ${glamora.subtitle}`}>
               {footerText}{" "}
-              <Link className="font-semibold text-pink-500 hover:underline" href={footerLink}>
+              <Link className="font-semibold text-[var(--glamora-rose)] hover:underline" href={footerLink}>
                 {footerLabel}
               </Link>
             </p>
-          </div>
-        </div>
-      </div>
+          </Box>
+        </Box>
+      </Box>
     </main>
   );
 }
