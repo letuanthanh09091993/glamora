@@ -5,9 +5,6 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { resolvePostLoginPath } from "@/lib/auth/resolve-post-login-path";
 import { AppRoutes } from "@/lib/app-routes";
-import { fetchAppUserPrincipalById } from "@/lib/supabase/users-repository";
-import { getBrowserSupabase } from "@/lib/supabase/browser-client";
-import type { UserRole } from "@/lib/auth-types";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
@@ -17,7 +14,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, refreshUser } = useAuth();
+  const { login, hasAuthSession, isReady, user } = useAuth();
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,33 +31,33 @@ export default function LoginPage() {
     }
   }, [t]);
 
+  useEffect(() => {
+    if (!isReady || !hasAuthSession) return;
+    const params = new URLSearchParams(window.location.search);
+    const destination = resolvePostLoginPath(params.get("next"), user?.role);
+    router.replace(destination);
+  }, [hasAuthSession, isReady, router, user?.role]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setNotice(null);
+
     const result = await login(email, password);
     setLoading(false);
-    setNotice({ type: result.ok ? "success" : "error", message: t(result.messageKey) });
 
-    if (result.ok) {
-      const params = new URLSearchParams(window.location.search);
-      let role: UserRole | undefined;
-      try {
-        const sb = getBrowserSupabase();
-        const {
-          data: { user: authUser },
-        } = await sb.auth.getUser();
-        if (authUser) {
-          const principal = await fetchAppUserPrincipalById(sb, authUser.id);
-          role = principal?.role;
-        }
-      } catch {
-        /* use default destination */
-      }
-      await refreshUser();
-      const destination = resolvePostLoginPath(params.get("next"), role);
-      setTimeout(() => router.push(destination), 500);
+    if (!result.ok) {
+      setNotice({ type: "error", message: t(result.messageKey) });
+      return;
     }
+
+    setNotice({ type: "success", message: t(result.messageKey) });
+
+    const params = new URLSearchParams(window.location.search);
+    const destination = resolvePostLoginPath(params.get("next"), result.role);
+
+    router.replace(destination);
+    router.refresh();
   }
 
   return (

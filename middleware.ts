@@ -40,40 +40,46 @@ export async function middleware(request: NextRequest) {
   const { supabase, getResponse } = createMiddlewareSupabase(request, supabaseResponse);
 
   const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+
+  const {
     data: { session },
   } = await supabase.auth.getSession();
 
   supabaseResponse = getResponse();
 
+  const sessionUser = session?.user ?? authUser ?? null;
+
   console.log("[ADMIN DEBUG]", {
     pathname,
-    hasSession: !!session,
-    userEmail: session?.user?.email,
-    authUserId: session?.user?.id,
+    hasSession: !!sessionUser,
+    userEmail: sessionUser?.email,
+    authUserId: sessionUser?.id,
   });
 
-  if (isDashboardPath && !session?.user) {
+  if (isDashboardPath && !sessionUser) {
     console.log("[ADMIN REDIRECT]", { reason: "not_logged_in", pathname });
     const login = new URL(AuthRoutes.login, request.url);
     login.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     return redirectWithSupabaseCookies(request, supabaseResponse, login);
   }
 
-  if (!session?.user) {
+  if (!sessionUser) {
     return supabaseResponse;
   }
 
   const { data: userRow, error: userRowError } = await supabase
     .from("users")
     .select("role, account_status")
-    .eq("id", session.user.id)
+    .eq("id", sessionUser.id)
     .maybeSingle<PublicUserRow>();
 
   console.log("[ADMIN DB ROLE]", {
     role: userRow?.role,
     account_status: userRow?.account_status,
     userRowError: userRowError?.message ?? null,
-    authUserId: session.user.id,
+    authUserId: sessionUser.id,
   });
 
   if (isAdminPath) {
@@ -97,8 +103,8 @@ export async function middleware(request: NextRequest) {
 
     console.log("=== ADMIN ACCESS ALLOWED ===");
     console.log("[ADMIN ACCESS GRANTED]", {
-      authUserId: session.user.id,
-      email: session.user.email,
+      authUserId: sessionUser.id,
+      email: sessionUser.email,
       role,
       account_status: accountStatus,
     });

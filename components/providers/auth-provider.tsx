@@ -7,33 +7,29 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { UserAccount } from "@/lib/auth-types";
+import type { Session } from "@supabase/supabase-js";
+import { UserAccount, type UserRole } from "@/lib/auth-types";
 import {
   login as loginWithSupabase,
   logout as logoutSupabase,
   signUp as signUpSupabase,
   updateCurrentUser,
 } from "@/lib/auth-storage";
-import { accountFromDbAuthRow } from "@/lib/auth/account-from-db-row";
-import { accountFromPrincipal } from "@/lib/auth/app-user";
-import { fetchDbAuthRow } from "@/lib/auth/fetch-db-auth-row";
-import { getBrowserSupabase } from "@/lib/supabase/browser-client";
-import {
-  fetchAppUserPrincipalById,
-  fetchUserAccountById,
-} from "@/lib/supabase/users-repository";
+import { syncProfileFromSession } from "@/lib/auth/sync-profile-from-session";
+import { waitForBrowserSession } from "@/lib/auth/wait-for-browser-session";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+
+type LoginResult = { ok: boolean; messageKey: string; role?: UserRole };
 
 type AuthContextValue = {
   user: UserAccount | null;
-  /** True after the first auth + `public.users` bootstrap attempt finishes. */
   isReady: boolean;
-  /** Supabase session present (even if `public.users` profile still loading). */
   hasAuthSession: boolean;
-  /** Supabase Auth email_confirmed_at present (source of truth for verification). */
   isEmailVerified: boolean;
-  login: (email: string, password: string) => Promise<{ ok: boolean; messageKey: string }>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   signUp: (payload: {
     email: string;
     username: string;
@@ -53,15 +49,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [hasAuthSession, setHasAuthSession] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const syncInFlight = useRef(false);
 
-  const refreshUser = useCallback(async () => {
-    try {
-      const sb = getBrowserSupabase();
+  const applyProfileSync = useCallback((synced: Awaited<ReturnType<typeof syncProfileFromSession>>) => {
+    setHasAuthSession(synced.hasAuthSession);
+    setIsEmailVerified(synced.isEmailVerified);
+    setUser(synced.user);
+  }, []);
+
+  const refreshUser = useCallback(
+    async (knownSession?: Session | null) => {
+      const sb = getSupabaseBrowserClient();
       await sb.auth.initialize();
 
-      const {
-        data: { session },
-      } = await sb.auth.getSession();
+      const session =
+        knownSession !== undefined
+          ? knownSession
+          : (
+              await sb.auth.getSession()
+            ).data.session;
 
       if (!session?.user) {
         setHasAuthSession(false);
@@ -73,58 +79,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setHasAuthSession(true);
       setIsEmailVerified(Boolean(session.user.email_confirmed_at));
 
-      const authUser = session.user;
-      const dbFetch = await fetchDbAuthRow(sb, authUser.id);
-
-      if (dbFetch.row && dbFetch.row.id === authUser.id) {
-        const principal = await fetchAppUserPrincipalById(sb, authUser.id);
-        const acc = await fetchUserAccountById(sb, authUser.id);
-
-        if (acc) {
-          setUser({
-            ...acc,
-            role: dbFetch.row.role,
-            accountStatus: dbFetch.row.account_status,
-          });
-          return;
-        }
-
-        if (principal && principal.id === authUser.id) {
-          setUser({
-            ...accountFromPrincipal(principal),
-            role: dbFetch.row.role,
-            accountStatus: dbFetch.row.account_status,
-          });
-          return;
-        }
-
-        setUser(accountFromDbAuthRow(dbFetch.row, authUser));
-        return;
+      try {
+        const synced = await syncProfileFromSession(sb, session);
+        applyProfileSync(synced);
+      } catch (err) {
+        console.log("[AUTH PROVIDER] profile sync error (session kept)", err);
+        setHasAuthSession(true);
+        setIsEmailVerified(Boolean(session.user.email_confirmed_at));
       }
+    },
+    [applyProfileSync],
+  );
 
-      const principal = await fetchAppUserPrincipalById(sb, authUser.id);
-      if (principal && principal.id === authUser.id) {
-        const acc = await fetchUserAccountById(sb, authUser.id);
-        setUser(
-          acc
-            ? { ...acc, role: principal.role, accountStatus: principal.accountStatus }
-            : accountFromPrincipal(principal),
-        );
-        return;
-      }
-
-      console.log("[ADMIN CLIENT] session without public.users row", {
-        authUserId: authUser.id,
-        dbError: dbFetch.error,
+  const handleAuthStateChange = useCallback(
+    async (event: string, session: Session | null) => {
+      console.log("[AUTH PROVIDER]", {
+        event,
+        sessionExists: !!session,
+        userEmail: session?.user?.email,
       });
-      setUser(null);
-    } catch (err) {
-      console.log("[ADMIN CLIENT] refreshUser error", err);
-      setHasAuthSession(false);
-      setUser(null);
-      setIsEmailVerified(false);
-    }
-  }, []);
+
+      if (event === "SIGNED_OUT") {
+        setHasAuthSession(false);
+        setUser(null);
+        setIsEmailVerified(false);
+        return;
+      }
+
+      if (session?.user) {
+        setHasAuthSession(true);
+        setIsEmailVerified(Boolean(session.user.email_confirmed_at));
+      }
+
+      if (syncInFlight.current) return;
+      syncInFlight.current = true;
+      try {
+        await refreshUser(session);
+      } finally {
+        syncInFlight.current = false;
+      }
+    },
+    [refreshUser],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -133,19 +129,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void (async () => {
       setIsReady(false);
       try {
-        const sb = getBrowserSupabase();
-        await refreshUser();
-        if (!mounted) return;
-        const { data } = sb.auth.onAuthStateChange(() => {
-          void refreshUser();
+        const sb = getSupabaseBrowserClient();
+        const {
+          data: { subscription: sub },
+        } = sb.auth.onAuthStateChange((event, session) => {
+          void handleAuthStateChange(event, session);
         });
-        subscription = data.subscription;
-      } catch {
-        if (mounted) {
-          setHasAuthSession(false);
-          setUser(null);
-          setIsEmailVerified(false);
-        }
+        subscription = sub;
+
+        if (!mounted) return;
+        await refreshUser();
+      } catch (err) {
+        console.log("[AUTH PROVIDER] bootstrap error", err);
       } finally {
         if (mounted) setIsReady(true);
       }
@@ -155,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription?.unsubscribe();
     };
-  }, [refreshUser]);
+  }, [handleAuthStateChange, refreshUser]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -165,19 +160,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isEmailVerified,
       async login(email, password) {
         const result = await loginWithSupabase(email, password);
-        await refreshUser();
-        return result;
+        if (!result.ok) return result;
+
+        const sb = getSupabaseBrowserClient();
+        const session = await waitForBrowserSession(sb);
+        if (!session?.user) {
+          console.log("[AUTH PROVIDER] login ok but session not persisted");
+          return { ok: false, messageKey: "authMessages.networkError" };
+        }
+
+        await refreshUser(session);
+        const synced = await syncProfileFromSession(sb, session);
+        applyProfileSync(synced);
+
+        return {
+          ok: true,
+          messageKey: result.messageKey,
+          role: synced.user?.role,
+        };
       },
       async signUp(payload) {
         const result = await signUpSupabase(payload);
-        await refreshUser();
+        if (result.ok) {
+          const sb = getSupabaseBrowserClient();
+          const session = await waitForBrowserSession(sb, { timeoutMs: 5000 });
+          if (session) await refreshUser(session);
+        }
         return result;
       },
       async logout() {
         try {
           await logoutSupabase();
         } catch {
-          /* missing env or network */
+          /* ignore */
         }
         setHasAuthSession(false);
         setUser(null);
@@ -190,10 +205,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return result;
       },
     }),
-    [hasAuthSession, isEmailVerified, isReady, refreshUser, user],
+    [applyProfileSync, hasAuthSession, isEmailVerified, isReady, refreshUser, user],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {hasAuthSession ? (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-[100] bg-sky-600 py-1.5 text-center text-xs font-bold tracking-wide text-white shadow-lg"
+          role="status"
+        >
+          AUTH SESSION ACTIVE
+        </div>
+      ) : null}
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

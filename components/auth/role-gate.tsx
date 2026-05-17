@@ -24,28 +24,41 @@ function GateLoading({ message }: { message: string }) {
 export function RoleGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isReady, hasAuthSession, isEmailVerified } = useAuth();
+  const { user, isReady, hasAuthSession, isEmailVerified, refreshUser } = useAuth();
   const { t } = useLanguage();
   const redirectingRef = useRef(false);
+  const profileRetryRef = useRef(0);
   const onAdminRoute = isAdminDashboardPath(pathname);
+
+  const profileLoading = hasAuthSession && !user;
 
   useEffect(() => {
     if (!isReady || redirectingRef.current) return;
 
+    if (!hasAuthSession && !user) {
+      redirectingRef.current = true;
+      router.replace(`${AuthRoutes.login}?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
+
+    if (profileLoading) {
+      if (profileRetryRef.current < 4) {
+        profileRetryRef.current += 1;
+        const timer = window.setTimeout(() => void refreshUser(), 350);
+        return () => window.clearTimeout(timer);
+      }
+      return;
+    }
+
     if (onAdminRoute) {
       if (!hasAuthSession) {
         redirectingRef.current = true;
-        console.log("[ADMIN CLIENT REDIRECT]", { reason: "not_logged_in", source: "role-gate", pathname });
         router.replace(`${AuthRoutes.login}?next=${encodeURIComponent(pathname)}`);
       }
       return;
     }
 
-    if (!user) {
-      redirectingRef.current = true;
-      router.replace(`${AuthRoutes.login}?next=${encodeURIComponent(pathname)}`);
-      return;
-    }
+    if (!user) return;
 
     if (user.accountStatus === "suspended" && !pathname.startsWith(AuthRoutes.accountSuspended)) {
       redirectingRef.current = true;
@@ -73,13 +86,24 @@ export function RoleGate({ children }: { children: React.ReactNode }) {
         router.replace(dest);
       }
     }
-  }, [hasAuthSession, isEmailVerified, isReady, onAdminRoute, pathname, router, user]);
+  }, [
+    hasAuthSession,
+    isEmailVerified,
+    isReady,
+    onAdminRoute,
+    pathname,
+    profileLoading,
+    refreshUser,
+    router,
+    user,
+  ]);
 
   useEffect(() => {
     redirectingRef.current = false;
-  }, [pathname, user?.id]);
+    profileRetryRef.current = 0;
+  }, [pathname, user?.id, hasAuthSession]);
 
-  if (!isReady) {
+  if (!isReady || profileLoading) {
     return <GateLoading message={t("gate.loadingSession")} />;
   }
 
@@ -90,7 +114,7 @@ export function RoleGate({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  if (!user) {
+  if (!hasAuthSession || !user) {
     return <GateLoading message={t("gate.loadingSession")} />;
   }
 
