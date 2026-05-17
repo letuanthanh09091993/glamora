@@ -1,6 +1,12 @@
-/** Temporary: no auth redirects — verify `/dashboard/admin` route in production first. */
-export default function AdminDashboardLayout({
+import { AdminDashboardShell } from "@/components/admin/admin-dashboard-shell";
+import { requireAdminAccess } from "@/lib/admin/require-admin-page";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminDashboardLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return <>{children}</>;
+  await requireAdminAccess();
+
+  return <AdminDashboardShell>{children}</AdminDashboardShell>;
 }

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AppButton } from "@/components/ui/app-button";
 import { Notice } from "@/components/ui/notice";
@@ -14,7 +13,6 @@ import { getBrowserSupabase } from "@/lib/supabase/browser-client";
 
 export default function VerifyEmailPage() {
   const { t } = useLanguage();
-  const router = useRouter();
   const { user, isReady, isEmailVerified, logout, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -41,9 +39,7 @@ export default function VerifyEmailPage() {
 
   async function handleLogout() {
     setLoggingOut(true);
-    await logout();
-    setLoggingOut(false);
-    router.replace(AppRoutes.login);
+    await logout({ redirectTo: AppRoutes.login });
   }
 
   if (!isReady) {

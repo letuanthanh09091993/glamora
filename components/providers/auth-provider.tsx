@@ -7,14 +7,17 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import type { SignupPayload, UserAccount } from "@/lib/auth-types";
+import { AppRoutes } from "@/lib/app-routes";
 import {
   signInWithPassword,
-  signOut as authSignOut,
+  signOut as clearSupabaseSession,
   signUpAccount,
+  type SignOutOptions,
 } from "@/lib/auth/auth-client";
 import { updateCurrentUser } from "@/lib/profile-storage";
 import { fetchUserAccountById } from "@/lib/supabase/users-repository";
@@ -27,7 +30,7 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (email: string, password: string) => ReturnType<typeof signInWithPassword>;
   signUp: (payload: SignupPayload) => ReturnType<typeof signUpAccount>;
-  signOut: () => Promise<void>;
+  signOut: (options?: SignOutOptions) => Promise<void>;
   updateProfile: (partial: Partial<UserAccount>) => ReturnType<typeof updateCurrentUser>;
   refreshUser: () => Promise<void>;
 };
@@ -39,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserAccount | null>(null);
   const [loading, setLoading] = useState(true);
+  const signOutInFlightRef = useRef(false);
 
   const applySession = useCallback(async (next: Session | null) => {
     setSession(next);
@@ -91,11 +95,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signIn: signInWithPassword,
       signUp: signUpAccount,
-      async signOut() {
-        await authSignOut();
+      async signOut(options?: SignOutOptions) {
+        if (signOutInFlightRef.current) return;
+        signOutInFlightRef.current = true;
+
+        const redirectTo = options?.redirectTo ?? AppRoutes.home;
+
         setSession(null);
         setAuthUser(null);
         setProfile(null);
+        setLoading(false);
+
+        try {
+          await clearSupabaseSession();
+        } catch (err) {
+          console.error("[auth] signOut failed", err);
+        }
+
+        if (redirectTo !== false && typeof window !== "undefined") {
+          window.location.assign(redirectTo);
+          return;
+        }
+
+        signOutInFlightRef.current = false;
       },
       updateProfile: updateCurrentUser,
       async refreshUser() {

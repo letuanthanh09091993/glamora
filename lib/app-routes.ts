@@ -32,6 +32,8 @@ export const AppRoutes = {
   dashboardModelBookings: "/dashboard/model/bookings",
   dashboardArtistLookingModel: "/dashboard/artist-looking-model",
   dashboardAdmin: "/dashboard/admin",
+  dashboardAdminUsers: "/dashboard/admin/users",
+  dashboardAdminArtists: "/dashboard/admin/artists",
   dashboardAdminBookings: "/dashboard/admin/bookings",
   dashboardAdminReports: "/dashboard/admin/reports",
 
