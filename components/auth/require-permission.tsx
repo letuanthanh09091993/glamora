@@ -16,56 +16,48 @@ export function RequirePermission({
   permission: Permission;
   children: ReactNode;
 }) {
-  const { user, isReady } = useAuth();
+  const { user, isReady, hasAuthSession } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useLanguage();
   const redirectingRef = useRef(false);
 
+  const loading = !isReady || (hasAuthSession && !user);
+  const onAdminRoute = isAdminDashboardPath(pathname);
+  const skipAdminEnforcement = permission === "canAccessAdmin" && onAdminRoute;
+
   const allowed =
+    !loading &&
     Boolean(user) &&
     hasPermission(user!.role, permission) &&
     (permission !== "canAccessAdmin" || isActiveAdminUser(user));
 
   useEffect(() => {
-    if (!isReady || !user || redirectingRef.current) return;
+    if (skipAdminEnforcement) return;
+    if (loading || redirectingRef.current) return;
+    if (!user) return;
 
     if (!hasPermission(user.role, permission)) {
       redirectingRef.current = true;
-      const dest = dashboardPathForRole(user.role);
-      if (permission === "canAccessAdmin" && isAdminDashboardPath(pathname)) {
-        console.log("[glamora-admin-auth-client]", {
-          step: "redirect",
-          pathname,
-          reason: "insufficient_permission",
-          fetchedDbRole: user.role,
-          redirectTo: dest,
-        });
-      }
-      router.replace(dest);
+      router.replace(dashboardPathForRole(user.role));
       return;
     }
 
     if (permission === "canAccessAdmin" && !isActiveAdminUser(user)) {
       redirectingRef.current = true;
-      const dest = dashboardPathForRole(user.role);
-      console.log("[glamora-admin-auth-client]", {
-        step: "redirect",
-        pathname,
-        reason: user.role !== "admin" ? "not_admin" : "inactive_account",
-        fetchedDbRole: user.role,
-        fetchedAccountStatus: user.accountStatus,
-        redirectTo: dest,
-      });
-      router.replace(dest);
+      router.replace(dashboardPathForRole(user.role));
     }
-  }, [isReady, pathname, permission, router, user]);
+  }, [loading, permission, router, skipAdminEnforcement, user]);
 
   useEffect(() => {
     redirectingRef.current = false;
   }, [permission, user?.id]);
 
-  if (!isReady || !user) {
+  if (skipAdminEnforcement) {
+    return <>{children}</>;
+  }
+
+  if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-sm text-gray-500">
         {t("gate.loadingSession")}

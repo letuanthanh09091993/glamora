@@ -24,22 +24,25 @@ function GateLoading({ message }: { message: string }) {
 export function RoleGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isReady, isEmailVerified } = useAuth();
+  const { user, isReady, hasAuthSession, isEmailVerified } = useAuth();
   const { t } = useLanguage();
   const redirectingRef = useRef(false);
+  const onAdminRoute = isAdminDashboardPath(pathname);
 
   useEffect(() => {
     if (!isReady || redirectingRef.current) return;
 
+    if (onAdminRoute) {
+      if (!hasAuthSession) {
+        redirectingRef.current = true;
+        console.log("[ADMIN CLIENT REDIRECT]", { reason: "not_logged_in", source: "role-gate", pathname });
+        router.replace(`${AuthRoutes.login}?next=${encodeURIComponent(pathname)}`);
+      }
+      return;
+    }
+
     if (!user) {
       redirectingRef.current = true;
-      if (isAdminDashboardPath(pathname)) {
-        console.log("[glamora-admin-auth-client]", {
-          step: "redirect",
-          pathname,
-          reason: "not_logged_in",
-        });
-      }
       router.replace(`${AuthRoutes.login}?next=${encodeURIComponent(pathname)}`);
       return;
     }
@@ -51,21 +54,6 @@ export function RoleGate({ children }: { children: React.ReactNode }) {
     }
 
     const activeAdmin = isActiveAdminUser(user);
-
-    if (isAdminDashboardPath(pathname) && !activeAdmin) {
-      redirectingRef.current = true;
-      const dest = dashboardPathForRole(user.role);
-      console.log("[glamora-admin-auth-client]", {
-        step: "redirect",
-        pathname,
-        reason: user.role !== "admin" ? "not_admin" : "inactive_account",
-        fetchedDbRole: user.role,
-        fetchedAccountStatus: user.accountStatus,
-        redirectTo: dest,
-      });
-      router.replace(dest);
-      return;
-    }
 
     const needsEmailForThisShell =
       (pathname.startsWith("/dashboard") || pathname.startsWith("/account")) &&
@@ -85,7 +73,7 @@ export function RoleGate({ children }: { children: React.ReactNode }) {
         router.replace(dest);
       }
     }
-  }, [isEmailVerified, isReady, pathname, router, user]);
+  }, [hasAuthSession, isEmailVerified, isReady, onAdminRoute, pathname, router, user]);
 
   useEffect(() => {
     redirectingRef.current = false;
@@ -95,11 +83,14 @@ export function RoleGate({ children }: { children: React.ReactNode }) {
     return <GateLoading message={t("gate.loadingSession")} />;
   }
 
-  if (!user) {
-    return <GateLoading message={t("gate.loadingSession")} />;
+  if (onAdminRoute) {
+    if (!hasAuthSession) {
+      return <GateLoading message={t("gate.loadingSession")} />;
+    }
+    return <>{children}</>;
   }
 
-  if (isAdminDashboardPath(pathname) && !isActiveAdminUser(user)) {
+  if (!user) {
     return <GateLoading message={t("gate.loadingSession")} />;
   }
 

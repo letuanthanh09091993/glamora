@@ -22,8 +22,7 @@ export function AdminConsoleShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { t } = useLanguage();
-
-  if (!user) return null;
+  const operator = user ?? { id: "", username: "—" };
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
@@ -43,12 +42,12 @@ export function AdminConsoleShell({ children }: { children: ReactNode }) {
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             <div
               className="max-w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-[11px] text-slate-800 sm:text-xs"
-              title={user.id}
+              title={operator.id}
             >
               <span className="text-slate-500">{t("dashboard.adminAccounts.operatorLabel")} </span>
-              <span className="font-semibold text-slate-950">{user.username}</span>
+              <span className="font-semibold text-slate-950">{operator.username}</span>
               <span className="text-slate-400"> · </span>
-              <span className="select-all">{user.id.slice(0, 8)}…</span>
+              <span className="select-all">{operator.id ? `${operator.id.slice(0, 8)}…` : "—"}</span>
             </div>
             <Link
               href="/"
