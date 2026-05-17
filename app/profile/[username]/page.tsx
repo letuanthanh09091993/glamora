@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppButton } from "@/components/ui/app-button";
 import { useAuth } from "@/components/providers/auth-provider";
+import { isPublicDiscoverableMakeupArtist } from "@/lib/artist/public-artists";
 import { getUserByUsername } from "@/lib/auth-storage";
 import { UserAccount } from "@/lib/auth-types";
 import { getRoleLabel } from "@/lib/i18n";
@@ -75,7 +76,9 @@ export default function PublicProfilePage() {
             <p className="text-sm text-gray-600">{getRoleLabel(language, profile.role)}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {user?.role === "customer" && profile.role === "makeup_artist" && profile.isPublicProfile ? (
+            {user?.role === "customer" &&
+            profile.role === "makeup_artist" &&
+            isPublicDiscoverableMakeupArtist(profile) ? (
               <Link href={`/book/${profile.username}`}>
                 <AppButton>{t("profile.bookSession")}</AppButton>
               </Link>

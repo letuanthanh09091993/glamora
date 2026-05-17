@@ -8,6 +8,7 @@ import { Notice } from "@/components/ui/notice";
 import { AppButton } from "@/components/ui/app-button";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
+import { isPublicDiscoverableMakeupArtist } from "@/lib/artist/public-artists";
 import { getUserByUsername } from "@/lib/auth-storage";
 import { UserAccount } from "@/lib/auth-types";
 import {
@@ -114,11 +115,18 @@ export default function BookArtistPage() {
     );
   }
 
-  if (!artist.isPublicProfile) {
+  if (!isFeaturedDemoSlug(artist.username) && !isPublicDiscoverableMakeupArtist(artist)) {
     return (
       <main className="min-h-screen bg-[#fdf8f6] p-4 sm:p-6">
         <div className="mx-auto max-w-lg rounded-[2rem] border border-black/10 bg-white p-6 shadow-sm sm:p-8">
-          <Notice type="error" message={t("booking.privateArtist")} />
+          <Notice
+            type="error"
+            message={
+              !artist.isPublicProfile
+                ? t("booking.privateArtist")
+                : t("booking.unverifiedArtist")
+            }
+          />
           <Link className="mt-4 inline-flex" href={`/profile/${artist.username}`}>
             <AppButton variant="secondary">{t("booking.backToProfile")}</AppButton>
           </Link>

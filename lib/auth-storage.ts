@@ -114,7 +114,13 @@ export async function adminUpdateUserAccount(
 
   if (patch.artistVerificationStatus !== undefined) {
     const st = patch.artistVerificationStatus;
-    const allowed: ArtistVerificationStatus[] = ["none", "pending", "verified", "rejected"];
+    const allowed: ArtistVerificationStatus[] = [
+      "none",
+      "pending",
+      "verified",
+      "rejected",
+      "approved",
+    ];
     if (!allowed.includes(st)) return { ok: false, messageKey: "authMessages.adminForbidden" };
     const effectiveRole = patch.role ?? target.role;
     if (effectiveRole !== "makeup_artist" && st !== "none") {

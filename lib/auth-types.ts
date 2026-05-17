@@ -10,7 +10,13 @@ export type UserRole = (typeof USER_ROLES)[number];
 
 export type AccountStatus = "active" | "suspended";
 
-export type ArtistVerificationStatus = "none" | "pending" | "verified" | "rejected";
+export type ArtistVerificationStatus =
+  | "none"
+  | "pending"
+  | "verified"
+  | "rejected"
+  /** @deprecated Legacy marketplace rows; treated as verified in public discovery */
+  | "approved";
 
 export type ServicePackageRow = {
   name: string;

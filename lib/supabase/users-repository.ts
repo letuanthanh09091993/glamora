@@ -4,6 +4,10 @@ import {
   accountFromPrincipal,
   type AppUserPrincipal,
 } from "@/lib/auth/app-user";
+import {
+  PUBLIC_MAKEUP_ARTIST_VERIFICATION_STATUSES,
+  filterPublicDiscoverableMakeupArtists,
+} from "@/lib/artist/public-artists";
 import type {
   AccountStatus,
   ArtistVerificationStatus,
@@ -287,11 +291,19 @@ export async function listPublicMakeupArtists(supabase: SupabaseClient): Promise
     .from("users")
     .select(userSelect)
     .eq("role", "makeup_artist")
+    .eq("account_status", "active")
     .eq("is_public_profile", true)
-    .eq("artist_verification_status", "verified")
+    .in("artist_verification_status", [...PUBLIC_MAKEUP_ARTIST_VERIFICATION_STATUSES])
     .order("username", { ascending: true });
-  if (error || !data) return [];
-  return (data as UserDbRow[]).map(mapUserDbRowToAccount);
+
+  if (error) {
+    console.warn("[listPublicMakeupArtists]", error.message);
+    return [];
+  }
+  if (!data) return [];
+
+  const mapped = (data as UserDbRow[]).map(mapUserDbRowToAccount);
+  return filterPublicDiscoverableMakeupArtists(mapped);
 }
 
 export async function listPublicModels(supabase: SupabaseClient): Promise<UserAccount[]> {

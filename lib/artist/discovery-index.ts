@@ -1,3 +1,4 @@
+import { isPublicDiscoverableMakeupArtist } from "@/lib/artist/public-artists";
 import type { UserAccount } from "@/lib/auth-types";
 
 /**
@@ -24,7 +25,8 @@ export type ArtistDiscoveryDocument = {
   searchableText: string;
 };
 
-export function buildArtistDiscoveryDocument(artist: UserAccount): ArtistDiscoveryDocument {
+export function buildArtistDiscoveryDocument(artist: UserAccount): ArtistDiscoveryDocument | null {
+  if (!isPublicDiscoverableMakeupArtist(artist)) return null;
   const packages = artist.servicePackages ?? [];
   const prices = packages
     .map((p) => parseFloat(String(p.price).replace(/[^\d.]/g, "")))
@@ -45,7 +47,7 @@ export function buildArtistDiscoveryDocument(artist: UserAccount): ArtistDiscove
     username: artist.username,
     displayName: artist.displayName?.trim() || artist.username,
     role: "makeup_artist",
-    verificationStatus: artist.artistVerificationStatus ?? "none",
+    verificationStatus: artist.artistVerificationStatus ?? "verified",
     featured: false,
     averageRating: artist.rating ?? null,
     reviewCount: artist.reviews ?? 0,

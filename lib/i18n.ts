@@ -753,6 +753,8 @@ const translations = {
       notArtist: "Người dùng này không phải chuyên viên trang điểm.",
       cannotBookSelf: "Bạn không thể đặt lịch với chính mình.",
       privateArtist: "Hồ sơ chuyên viên trang điểm này đang ở chế độ riêng tư nên không nhận đặt lịch.",
+      unverifiedArtist:
+        "Chuyên viên này chưa được xác minh trên Glamora nên chưa nhận đặt lịch công khai.",
       prevMonth: "Tháng trước",
       nextMonth: "Tháng sau",
       weekdaysShort: "T2,T3,T4,T5,T6,T7,CN",
@@ -1706,6 +1708,8 @@ const translations = {
       notArtist: "This user is not a makeup artist.",
       cannotBookSelf: "You cannot book yourself.",
       privateArtist: "This artist profile is private and cannot accept bookings.",
+      unverifiedArtist:
+        "This artist is not verified on Glamora yet and cannot accept public bookings.",
       prevMonth: "Previous month",
       nextMonth: "Next month",
       weekdaysShort: "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
