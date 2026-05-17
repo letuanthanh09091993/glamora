@@ -27,7 +27,10 @@ export function mapBookingRow(row: BookingRow): Booking {
     cancellationReason: row.cancellation_reason ? String(row.cancellation_reason) : undefined,
     artistResponseAt: row.artist_response_at ? String(row.artist_response_at) : undefined,
     completedAt: row.completed_at ? String(row.completed_at) : undefined,
-    paymentStatus: (row.payment_status as PaymentStatus | undefined) ?? "unpaid",
+    paymentStatus:
+      row.payment_status != null && row.payment_status !== ""
+        ? (row.payment_status as PaymentStatus)
+        : undefined,
     totalPrice: row.total_price != null ? Number(row.total_price) : undefined,
     platformFee: row.platform_fee != null ? Number(row.platform_fee) : undefined,
     currency: row.currency ? String(row.currency) : "VND",
@@ -41,15 +44,11 @@ export function mapBookingRow(row: BookingRow): Booking {
   };
 }
 
+/** Core `public.bookings` columns only (production-safe insert). */
 export function toInsertRow(
   input: CreateBookingInput,
   id: string,
   createdAt: string,
-  extras?: {
-    totalPrice?: number;
-    serviceId?: string;
-    timezone?: string;
-  },
 ) {
   return {
     id,
@@ -62,14 +61,16 @@ export function toInsertRow(
     address: input.address,
     contact_phone: input.contactPhone,
     service_type: input.serviceType,
-    service_id: extras?.serviceId ?? input.serviceId ?? null,
     status: "pending" as const,
     created_at: createdAt,
-    updated_at: createdAt,
-    payment_status: "unpaid",
-    total_price: extras?.totalPrice ?? input.totalPrice ?? null,
-    timezone: extras?.timezone ?? input.timezone ?? "Asia/Ho_Chi_Minh",
   };
+}
+
+/** Strip marketplace-only fields before PATCH/UPDATE on core schema. */
+export function toBookingStatusUpdatePayload(patch: { status: BookingStatusDb }): {
+  status: BookingStatusDb;
+} {
+  return { status: patch.status };
 }
 
 export async function insertBookingActivity(

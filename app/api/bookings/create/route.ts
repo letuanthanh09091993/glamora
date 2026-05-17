@@ -158,7 +158,6 @@ export async function POST(request: Request) {
     const serviceIds = Array.isArray(body.serviceIds)
       ? body.serviceIds.filter((id) => typeof id === "string" && id.trim())
       : [];
-    const primaryServiceId = serviceIds[0] ?? null;
 
     const insertRow: Record<string, unknown> = {
       id: bookingId,
@@ -169,16 +168,11 @@ export async function POST(request: Request) {
       end_at: endAt,
       notes,
       status: "pending",
-      payment_status: "unpaid",
       created_at: createdAt,
       address: body.address?.trim() || null,
       contact_phone: body.contactPhone?.trim() || null,
       service_type: body.serviceType?.trim() || null,
     };
-
-    if (primaryServiceId) {
-      insertRow.service_id = primaryServiceId;
-    }
 
     const { data: booking, error: insertErr } = await supabase
       .from("bookings")

@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { validateBookingTransition } from "@/lib/booking/booking-engine";
 import type { BookingStatusDb } from "@/lib/booking/booking-status";
-import { mapBookingRow, insertBookingActivity } from "@/lib/bookings/bookings-repository";
+import {
+  mapBookingRow,
+  insertBookingActivity,
+  toBookingStatusUpdatePayload,
+} from "@/lib/bookings/bookings-repository";
 import { fetchDbAuthRow } from "@/lib/auth/fetch-db-auth-row";
 import {
   notificationEventForStatusTransition,
@@ -67,12 +71,20 @@ export async function PATCH(
       return NextResponse.json({ error: validation.messageKey }, { status: 400 });
     }
 
+    const payload = toBookingStatusUpdatePayload(validation.patch);
+    console.log("[BOOKING STATUS UPDATE]", {
+      bookingId,
+      nextStatus: body.status,
+      payload,
+    });
+
     const { error: updateErr } = await supabase
       .from("bookings")
-      .update(validation.patch)
+      .update(payload)
       .eq("id", bookingId);
 
     if (updateErr) {
+      console.warn("[BOOKING STATUS UPDATE] failed:", updateErr.message);
       return NextResponse.json({ error: updateErr.message }, { status: 500 });
     }
 

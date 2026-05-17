@@ -12,6 +12,7 @@ import {
   checkBookingConflict,
   insertBookingActivity,
   mapBookingRow,
+  toBookingStatusUpdatePayload,
   toInsertRow,
 } from "@/lib/bookings/bookings-repository";
 import {
@@ -133,11 +134,7 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
 
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
-  const row = toInsertRow(input, id, createdAt, {
-    totalPrice: input.totalPrice,
-    serviceId: input.serviceId,
-    timezone: input.timezone,
-  });
+  const row = toInsertRow(input, id, createdAt);
   const { data, error } = await sb.from("bookings").insert(row).select("*").single();
   if (error || !data) {
     throw new Error(error?.message ?? "Failed to create booking");
@@ -202,8 +199,18 @@ export async function updateBookingStatus(
     return { ok: false, messageKey: validation.messageKey };
   }
 
-  const { error } = await sb.from("bookings").update(validation.patch).eq("id", bookingId);
-  if (error) return { ok: false, messageKey: "booking.errors.invalidTransition" };
+  const payload = toBookingStatusUpdatePayload(validation.patch);
+  console.log("[BOOKING STATUS UPDATE]", {
+    bookingId,
+    nextStatus: next,
+    payload,
+  });
+
+  const { error } = await sb.from("bookings").update(payload).eq("id", bookingId);
+  if (error) {
+    console.warn("[BOOKING STATUS UPDATE] failed:", error.message);
+    return { ok: false, messageKey: "booking.errors.invalidTransition" };
+  }
 
   await insertBookingActivity(sb, {
     bookingId,
@@ -263,15 +270,19 @@ export async function submitBookingFeedback(
   }
 
   const reviewedAt = new Date().toISOString();
-  const { error } = await sb
-    .from("bookings")
-    .update({
-      ...validation.patch,
-      customer_rating: Math.round(rating),
-      customer_feedback: input.feedback.trim(),
-      reviewed_at: reviewedAt,
-    })
-    .eq("id", bookingId);
+  const feedbackPayload = {
+    ...toBookingStatusUpdatePayload(validation.patch),
+    customer_rating: Math.round(rating),
+    customer_feedback: input.feedback.trim(),
+    reviewed_at: reviewedAt,
+  };
+  console.log("[BOOKING STATUS UPDATE]", {
+    bookingId,
+    nextStatus: "completed",
+    payload: feedbackPayload,
+  });
+
+  const { error } = await sb.from("bookings").update(feedbackPayload).eq("id", bookingId);
 
   if (error) return { ok: false, messageKey: "booking.errors.invalidTransition" };
 

@@ -18,12 +18,9 @@ export type BookingTransitionContext = {
   status: BookingStatusDb;
 };
 
+/** Payload safe for core `public.bookings` (status column only). */
 export type BookingTransitionPatch = {
   status: BookingStatusDb;
-  artist_response_at?: string;
-  completed_at?: string;
-  cancellation_reason?: string;
-  updated_at: string;
 };
 
 export type TransitionValidationResult =
@@ -40,7 +37,13 @@ function canCustomerSetStatus(from: BookingStatusDb, to: BookingStatusDb): boole
 
 function canArtistSetStatus(from: BookingStatusDb, to: BookingStatusDb): boolean {
   if (from === "pending" || from === "awaiting_artist_response") {
-    return to === "confirmed" || to === "rejected" || to === "declined" || to === "cancelled_by_artist" || to === "cancelled";
+    return (
+      to === "confirmed" ||
+      to === "rejected" ||
+      to === "declined" ||
+      to === "cancelled_by_artist" ||
+      to === "cancelled"
+    );
   }
   if (from === "confirmed") {
     return to === "service_done" || to === "cancelled_by_artist" || to === "cancelled";
@@ -66,13 +69,13 @@ export function validateBookingTransition(
   booking: BookingTransitionContext,
   nextRaw: BookingStatusDb,
   actor: BookingTransitionActor,
-  options?: { cancellationReason?: string },
+  _options?: { cancellationReason?: string },
 ): TransitionValidationResult {
   const from = booking.status;
   const next = normalizeStatusForWrite(nextRaw, actor, booking);
 
   if (from === next) {
-    return { ok: true, patch: { status: next, updated_at: new Date().toISOString() } };
+    return { ok: true, patch: { status: next } };
   }
 
   if (isTerminalBookingStatus(from)) {
@@ -82,19 +85,6 @@ export function validateBookingTransition(
   const participant = isParticipant(actor, booking);
   if (!participant) {
     return { ok: false, messageKey: "booking.errors.invalidTransition" };
-  }
-
-  if (participant === "admin") {
-    const patch: BookingTransitionPatch = {
-      status: next,
-      updated_at: new Date().toISOString(),
-    };
-    if (next === "confirmed" || next === "rejected") {
-      patch.artist_response_at = new Date().toISOString();
-    }
-    if (next === "completed") patch.completed_at = new Date().toISOString();
-    if (options?.cancellationReason) patch.cancellation_reason = options.cancellationReason;
-    return { ok: true, patch };
   }
 
   if (participant === "customer") {
@@ -107,25 +97,7 @@ export function validateBookingTransition(
     }
   }
 
-  const patch: BookingTransitionPatch = {
-    status: next,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (next === "confirmed" || next === "rejected") {
-    patch.artist_response_at = new Date().toISOString();
-  }
-  if (next === "completed") {
-    patch.completed_at = new Date().toISOString();
-  }
-  if (
-    (next === "cancelled_by_customer" || next === "cancelled_by_artist" || next === "cancelled") &&
-    options?.cancellationReason
-  ) {
-    patch.cancellation_reason = options.cancellationReason.trim();
-  }
-
-  return { ok: true, patch };
+  return { ok: true, patch: { status: next } };
 }
 
 export function validateBookingFeedbackTransition(
@@ -140,10 +112,6 @@ export function validateBookingFeedbackTransition(
   }
   return {
     ok: true,
-    patch: {
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
+    patch: { status: "completed" },
   };
 }
