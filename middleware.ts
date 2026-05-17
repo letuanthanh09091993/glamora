@@ -61,6 +61,10 @@ export async function middleware(request: NextRequest) {
   const isDashboard = isDashboardOrAccountPath(pathname);
   const isAdminPath = isAdminDashboardPath(pathname);
 
+  if (isAdminPath) {
+    console.log("[ADMIN DEBUG USER]", user);
+  }
+
   logAuthCheck("session", {
     pathname,
     isDashboard,
@@ -71,6 +75,9 @@ export async function middleware(request: NextRequest) {
   });
 
   if (!user && isDashboard) {
+    if (isAdminPath) {
+      console.log("[ADMIN REDIRECT]", { reason: "not_logged_in" });
+    }
     logAuthCheck("redirect_login_unauthenticated", { pathname });
     const login = new URL(AuthRoutes.login, request.url);
     login.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
@@ -83,6 +90,12 @@ export async function middleware(request: NextRequest) {
       .select("role, account_status")
       .eq("id", user.id)
       .maybeSingle<UsersAuthRow>();
+
+    const dbUser = urow;
+
+    if (isAdminPath) {
+      console.log("[ADMIN DB USER]", dbUser);
+    }
 
     const accountStatus = urow?.account_status ?? "active";
     const role = urow?.role as UserRole | undefined;
@@ -141,6 +154,11 @@ export async function middleware(request: NextRequest) {
         }
 
         if (!activeAdmin) {
+          if (role !== "admin") {
+            console.log("[ADMIN REDIRECT]", { reason: "not_admin", role });
+          } else if (accountStatus !== "active") {
+            console.log("[ADMIN REDIRECT]", { reason: "inactive_account", account_status: accountStatus });
+          }
           const dest = role ? dashboardPathForRole(role) : AppRoutes.dashboardCustomer;
           logAuthCheck("redirect_admin_denied", {
             pathname,
@@ -152,6 +170,13 @@ export async function middleware(request: NextRequest) {
           });
           return NextResponse.redirect(new URL(dest, request.url));
         }
+
+        console.log("[ADMIN ACCESS GRANTED]", {
+          authUserId: user?.id,
+          email: user?.email,
+          role,
+          account_status: accountStatus,
+        });
 
         logAuthCheck("admin_allowed", {
           pathname,
