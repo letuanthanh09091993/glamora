@@ -89,24 +89,24 @@ export function DashboardShell({
   const { t, language } = useLanguage();
   const pathname = usePathname();
 
-  if (!user) return null;
-
-  const displayNameTrimmed = user.displayName?.trim() ?? "";
-  const headlineName = displayNameTrimmed || user.username;
-  const showUsernameHandle = Boolean(displayNameTrimmed);
-
   const [artistStats, setArtistStats] = useState<{
     sessionsDelivered: number;
     uniqueCustomers: number;
   } | null>(null);
 
   useEffect(() => {
-    if (user.role !== "makeup_artist") {
+    if (!user || user.role !== "makeup_artist") {
       setArtistStats(null);
       return;
     }
     void getArtistDeliveredSessionStats(user.id).then(setArtistStats);
-  }, [user.id, user.role, pathname]);
+  }, [user?.id, user?.role, pathname]);
+
+  if (!user) return null;
+
+  const displayNameTrimmed = user.displayName?.trim() ?? "";
+  const headlineName = displayNameTrimmed || user.username;
+  const showUsernameHandle = Boolean(displayNameTrimmed);
 
   return (
     <main className="min-h-screen bg-[#fdf8f6]">

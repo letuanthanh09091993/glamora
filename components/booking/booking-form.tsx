@@ -1,13 +1,14 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
 import { Notice } from "@/components/ui/notice";
 import { useLanguage } from "@/components/providers/language-provider";
+import type { AvailabilitySlot } from "@/lib/availability/availability-types";
+import { GLAMORA_TIMEZONE } from "@/lib/availability/timezone";
 import { listPublicModels } from "@/lib/auth-storage";
 import { UserAccount } from "@/lib/auth-types";
-import { createBooking } from "@/lib/booking-storage";
 import { BOOKING_SERVICE_TYPES } from "@/lib/booking-types";
 
 type BookingFormProps = {
@@ -18,12 +19,23 @@ type BookingFormProps = {
 
 const DURATION_OPTIONS = [60, 90, 120, 180];
 
+function formatSlotTime(iso: string, locale: string): string {
+  return new Date(iso).toLocaleTimeString(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: GLAMORA_TIMEZONE,
+  });
+}
+
 export function BookingForm({ customerId, artistId, onCreated }: BookingFormProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const locale = language === "VN" ? "vi-VN" : "en-US";
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [date, setDate] = useState(today);
-  const [time, setTime] = useState("10:00");
-  const [duration, setDuration] = useState(String(DURATION_OPTIONS[1]));
+  const [duration, setDuration] = useState(String(DURATION_OPTIONS[0]));
+  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
   const [address, setAddress] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [serviceType, setServiceType] = useState<string>(BOOKING_SERVICE_TYPES[0]);
@@ -36,6 +48,41 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
   useEffect(() => {
     void listPublicModels().then(setPublicModels);
   }, []);
+
+  const loadSlots = useCallback(async () => {
+    if (!artistId || !date) return;
+    setSlotsLoading(true);
+    setSelectedSlot(null);
+    try {
+      const params = new URLSearchParams({
+        date,
+        duration_minutes: duration,
+      });
+      const res = await fetch(`/api/availability/${artistId}/slots?${params}`);
+      const json = (await res.json()) as {
+        success?: boolean;
+        slots?: AvailabilitySlot[];
+      };
+      if (!res.ok || !json.success || !Array.isArray(json.slots)) {
+        setSlots([]);
+        return;
+      }
+      setSlots(json.slots);
+    } catch {
+      setSlots([]);
+    } finally {
+      setSlotsLoading(false);
+    }
+  }, [artistId, date, duration]);
+
+  useEffect(() => {
+    void loadSlots();
+  }, [loadSlots]);
+
+  const availableSlots = useMemo(
+    () => slots.filter((s) => s.available),
+    [slots],
+  );
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -50,42 +97,53 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
       return;
     }
 
-    const minutes = Number(duration);
-    if (!Number.isFinite(minutes) || minutes <= 0) {
-      setNotice({ type: "error", message: t("signup.fixErrors") });
+    if (!selectedSlot?.available) {
+      setNotice({ type: "error", message: t("booking.slotsPickOne") });
       setLoading(false);
       return;
     }
 
-    const start = new Date(`${date}T${time}:00`);
-    if (Number.isNaN(start.getTime())) {
-      setNotice({ type: "error", message: t("signup.fixErrors") });
-      setLoading(false);
-      return;
-    }
-
-    const end = new Date(start.getTime() + minutes * 60_000);
     try {
-      await createBooking({
-        customerId,
-        artistId,
-        ...(optionalModelId ? { modelId: optionalModelId } : {}),
-        startAt: start.toISOString(),
-        endAt: end.toISOString(),
-        notes: notes.trim(),
-        address: trimmedAddress,
-        contactPhone: trimmedPhone,
-        serviceType,
+      const res = await fetch("/api/bookings/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          artistId,
+          customerId,
+          startAt: selectedSlot.start_at,
+          endAt: selectedSlot.end_at,
+          notes: notes.trim(),
+          serviceIds: [],
+          address: trimmedAddress,
+          contactPhone: trimmedPhone,
+          serviceType,
+          ...(optionalModelId ? { modelId: optionalModelId } : {}),
+        }),
       });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      setNotice({
-        type: "error",
-        message:
-          msg === "BOOKING_SLOT_UNAVAILABLE"
-            ? t("booking.errors.slotUnavailable")
-            : t("signup.fixErrors"),
-      });
+
+      const json = (await res.json()) as {
+        success?: boolean;
+        error?: string;
+        bookingId?: string;
+      };
+
+      if (res.status === 409) {
+        setNotice({ type: "error", message: t("booking.errors.slotUnavailable") });
+        setLoading(false);
+        void loadSlots();
+        return;
+      }
+
+      if (!res.ok || !json.success) {
+        setNotice({
+          type: "error",
+          message: json.error ?? t("signup.fixErrors"),
+        });
+        setLoading(false);
+        return;
+      }
+    } catch {
+      setNotice({ type: "error", message: t("signup.fixErrors") });
       setLoading(false);
       return;
     }
@@ -97,29 +155,88 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
     setContactPhone("");
     setServiceType(BOOKING_SERVICE_TYPES[0]);
     setNotes("");
+    setSelectedSlot(null);
+    void loadSlots();
   }
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <AppInput label={t("booking.dateLabel")} type="date" value={date} onChange={setDate} />
-        <AppInput label={t("booking.timeLabel")} type="time" value={time} onChange={setTime} />
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-gray-700">
+            {t("booking.dateLabel")}
+          </span>
+          <input
+            type="date"
+            value={date}
+            min={today}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium text-gray-700">
+            {t("booking.durationLabel")}
+          </span>
+          <select
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+          >
+            {DURATION_OPTIONS.map((m) => (
+              <option key={m} value={String(m)}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      <label className="block">
-        <span className="mb-2 block text-sm font-medium text-gray-700">{t("booking.durationLabel")}</span>
-        <select
-          value={duration}
-          onChange={(e) => setDuration(e.target.value)}
-          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none transition focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
-        >
-          {DURATION_OPTIONS.map((m) => (
-            <option key={m} value={String(m)}>
-              {m}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="block">
+        <span className="mb-2 block text-sm font-medium text-gray-700">
+          {t("booking.slotsLabel")}
+        </span>
+        {slotsLoading ? (
+          <p className="rounded-2xl border border-black/10 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            {t("booking.slotsLoading")}
+          </p>
+        ) : availableSlots.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-black/15 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+            {t("booking.slotsEmpty")}
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+            {slots.map((slot) => {
+              const isSelected =
+                selectedSlot?.start_at === slot.start_at &&
+                selectedSlot?.end_at === slot.end_at;
+              const label = `${formatSlotTime(slot.start_at, locale)} – ${formatSlotTime(slot.end_at, locale)}`;
+              return (
+                <button
+                  key={`${slot.start_at}-${slot.end_at}`}
+                  type="button"
+                  disabled={!slot.available}
+                  onClick={() => slot.available && setSelectedSlot(slot)}
+                  className={[
+                    "rounded-2xl border px-3 py-2.5 text-left text-sm transition",
+                    slot.available
+                      ? isSelected
+                        ? "border-pink-400 bg-pink-50 text-pink-900 ring-2 ring-pink-200"
+                        : "border-black/10 bg-white text-slate-800 hover:border-pink-200 hover:bg-pink-50/50"
+                      : "cursor-not-allowed border-black/5 bg-slate-100 text-slate-400",
+                  ].join(" ")}
+                  aria-pressed={isSelected}
+                >
+                  <span className="block font-medium">{formatSlotTime(slot.start_at, locale)}</span>
+                  <span className="block text-xs opacity-70">
+                    {slot.available ? label.split("–")[1]?.trim() : t("booking.slotsUnavailable")}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <AppInput
         label={t("booking.addressLabel")}
@@ -137,7 +254,9 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
           onChange={setContactPhone}
         />
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-gray-700">{t("booking.serviceTypeLabel")}</span>
+          <span className="mb-2 block text-sm font-medium text-gray-700">
+            {t("booking.serviceTypeLabel")}
+          </span>
           <select
             value={serviceType}
             onChange={(e) => setServiceType(e.target.value)}
@@ -154,7 +273,9 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
 
       {publicModels.length > 0 ? (
         <label className="block">
-          <span className="mb-2 block text-sm font-medium text-gray-700">{t("booking.optionalModelLabel")}</span>
+          <span className="mb-2 block text-sm font-medium text-gray-700">
+            {t("booking.optionalModelLabel")}
+          </span>
           <select
             value={optionalModelId}
             onChange={(e) => setOptionalModelId(e.target.value)}
@@ -183,8 +304,8 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
 
       {notice ? <Notice type={notice.type} message={notice.message} /> : null}
 
-      <AppButton type="submit" loading={loading}>
-        {t("booking.submit")}
+      <AppButton type="submit" loading={loading} disabled={slotsLoading || !selectedSlot}>
+        {t("booking.confirmBooking")}
       </AppButton>
     </form>
   );
