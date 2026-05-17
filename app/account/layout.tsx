@@ -1,8 +1,6 @@
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-
-export default async function AccountLayout({
+/** Debug mode: auth guard disabled — use /debug-auth to inspect session. */
+export default function AccountLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  await getCurrentUser();
   return <>{children}</>;
 }

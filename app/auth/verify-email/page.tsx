@@ -10,7 +10,6 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
 import { resendSignupVerificationEmail } from "@/lib/auth/client-actions";
 import { AppRoutes } from "@/lib/app-routes";
-import { ROLE_META } from "@/lib/role-meta";
 import { getBrowserSupabase } from "@/lib/supabase/browser-client";
 
 export default function VerifyEmailPage() {
@@ -22,12 +21,13 @@ export default function VerifyEmailPage() {
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  useEffect(() => {
-    if (!isReady) return;
-    if (user && isEmailVerified) {
-      router.replace(ROLE_META[user.role].dashboardPath);
-    }
-  }, [isReady, user, isEmailVerified, router]);
+  /* Debug mode: client redirect disabled — use /dashboard for role routing */
+  // useEffect(() => {
+  //   if (!isReady) return;
+  //   if (user && isEmailVerified) {
+  //     router.replace(ROLE_META[user.role].dashboardPath);
+  //   }
+  // }, [isReady, user, isEmailVerified, router]);
 
   useEffect(() => {
     if (!isReady || !user) return;

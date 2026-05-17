@@ -91,13 +91,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyProfileSync],
   );
 
+  const logAuthProviderSession = useCallback((label: string, session: Session | null) => {
+    console.log("[AUTH PROVIDER SESSION]", label, {
+      sessionExists: Boolean(session),
+      userId: session?.user?.id ?? null,
+      email: session?.user?.email ?? null,
+      expiresAt: session?.expires_at ?? null,
+      hasAccessToken: Boolean(session?.access_token),
+    });
+  }, []);
+
   const handleAuthStateChange = useCallback(
     async (event: string, session: Session | null) => {
-      console.log("[AUTH PROVIDER]", {
-        event,
-        sessionExists: !!session,
-        userEmail: session?.user?.email,
-      });
+      logAuthProviderSession(`onAuthStateChange:${event}`, session);
 
       if (event === "SIGNED_OUT") {
         setHasAuthSession(false);
@@ -119,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         syncInFlight.current = false;
       }
     },
-    [refreshUser],
+    [logAuthProviderSession, refreshUser],
   );
 
   useEffect(() => {
@@ -138,6 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         subscription = sub;
 
         if (!mounted) return;
+
+        const {
+          data: { session: initialSession },
+        } = await sb.auth.getSession();
+        logAuthProviderSession("initial load", initialSession);
+
         await refreshUser();
       } catch (err) {
         console.log("[AUTH PROVIDER] bootstrap error", err);
@@ -150,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription?.unsubscribe();
     };
-  }, [handleAuthStateChange, refreshUser]);
+  }, [handleAuthStateChange, logAuthProviderSession, refreshUser]);
 
   const value = useMemo<AuthContextValue>(
     () => ({

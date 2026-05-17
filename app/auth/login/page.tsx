@@ -38,7 +38,17 @@ export default function LoginPage() {
 
     const supabase = getSupabaseBrowserClient();
     const session = await waitForBrowserSession(supabase);
-    if (!session?.user) {
+    const {
+      data: { session: afterWait },
+    } = await supabase.auth.getSession();
+
+    console.log("[LOGIN RESULT] after waitForBrowserSession", {
+      hasSession: Boolean(session ?? afterWait),
+      userId: (session ?? afterWait)?.user?.id ?? null,
+      hasAccessToken: Boolean((session ?? afterWait)?.access_token),
+    });
+
+    if (!session?.user && !afterWait?.user) {
       setLoading(false);
       setNotice({ type: "error", message: t("authMessages.networkError") });
       return;
