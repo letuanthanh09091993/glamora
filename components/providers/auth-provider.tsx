@@ -21,6 +21,7 @@ import { fetchUserAccountById } from "@/lib/supabase/users-repository";
 
 type AuthContextValue = {
   user: UserAccount | null;
+  /** True after the first auth + `public.users` bootstrap attempt finishes. */
   isReady: boolean;
   /** Supabase Auth email_confirmed_at present (source of truth for verification). */
   isEmailVerified: boolean;
@@ -47,16 +48,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const sb = getBrowserSupabase();
+      await sb.auth.initialize();
       const {
-        data: { session },
-      } = await sb.auth.getSession();
-      if (!session?.user) {
+        data: { user: authUser },
+        error: authError,
+      } = await sb.auth.getUser();
+
+      if (authError || !authUser) {
         setUser(null);
         setIsEmailVerified(false);
         return;
       }
-      setIsEmailVerified(Boolean(session.user.email_confirmed_at));
-      const acc = await fetchUserAccountById(sb, session.user.id);
+
+      setIsEmailVerified(Boolean(authUser.email_confirmed_at));
+      const acc = await fetchUserAccountById(sb, authUser.id);
       setUser(acc);
     } catch {
       setUser(null);
@@ -69,11 +74,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let subscription: { unsubscribe: () => void } | undefined;
 
     void (async () => {
+      setIsReady(false);
       try {
         const sb = getBrowserSupabase();
         await refreshUser();
         if (!mounted) return;
-        setIsReady(true);
         const { data } = sb.auth.onAuthStateChange(() => {
           void refreshUser();
         });
@@ -82,8 +87,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mounted) {
           setUser(null);
           setIsEmailVerified(false);
-          setIsReady(true);
         }
+      } finally {
+        if (mounted) setIsReady(true);
       }
     })();
 

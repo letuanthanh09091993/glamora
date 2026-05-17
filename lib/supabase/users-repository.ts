@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  accountFromPrincipal,
+  type AppUserPrincipal,
+} from "@/lib/auth/app-user";
 import type {
   AccountStatus,
   ArtistVerificationStatus,
@@ -180,17 +184,70 @@ const userSelect = `
   artist_portfolios (*)
 `;
 
+const principalSelect =
+  "id, username, role, account_status, phone_number, is_public_profile, auth_login_email, contact_email, created_at";
+
+function mapPrincipalRow(row: {
+  id: string;
+  username: string;
+  role: string;
+  account_status?: string | null;
+  phone_number: string;
+  is_public_profile: boolean;
+  auth_login_email?: string | null;
+  contact_email?: string | null;
+  created_at?: string;
+}): AppUserPrincipal {
+  return {
+    id: row.id,
+    username: row.username,
+    role: row.role as UserRole,
+    accountStatus: (row.account_status as AccountStatus | undefined) ?? "active",
+    phoneNumber: row.phone_number,
+    isPublicProfile: row.is_public_profile,
+    authLoginEmail: row.auth_login_email?.trim() || undefined,
+    contactEmail: row.contact_email?.trim() || undefined,
+    createdAt: row.created_at,
+  };
+}
+
+/** Lightweight `public.users` read for auth / middleware (no joins). */
+export async function fetchAppUserPrincipalById(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<AppUserPrincipal | null> {
+  const { data, error } = await supabase
+    .from("users")
+    .select(principalSelect)
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return mapPrincipalRow(data);
+}
+
 export async function fetchUserAccountById(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<UserAccount | null> {
+  const principal = await fetchAppUserPrincipalById(supabase, userId);
+  if (!principal) return null;
+
   const { data, error } = await supabase
     .from("users")
     .select(userSelect)
     .eq("id", userId)
     .maybeSingle();
-  if (error || !data) return null;
-  return mapUserDbRowToAccount(data as UserDbRow);
+
+  if (error || !data) {
+    return accountFromPrincipal(principal);
+  }
+
+  const full = mapUserDbRowToAccount(data as UserDbRow);
+  return {
+    ...full,
+    role: principal.role,
+    accountStatus: principal.accountStatus,
+  };
 }
 
 export async function fetchUserByUsername(

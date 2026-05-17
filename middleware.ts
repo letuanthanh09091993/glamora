@@ -1,11 +1,20 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isActiveAdminUser, dashboardPathForRole } from "@/lib/auth/app-user";
 import {
   allowsSessionWithoutVerifiedEmail,
+  allowsUnverifiedEmailForDashboard,
   AuthRoutes,
   isAdminDashboardPath,
   isDashboardOrAccountPath,
 } from "@/lib/auth/rbac";
+import { AppRoutes } from "@/lib/app-routes";
+import type { UserRole } from "@/lib/auth-types";
+
+type UsersAuthRow = {
+  role: string;
+  account_status: string | null;
+};
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -49,13 +58,21 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    const { data: urow } = await supabase
+    const { data: urow, error: urowError } = await supabase
       .from("users")
       .select("role, account_status")
       .eq("id", user.id)
-      .maybeSingle();
+      .maybeSingle<UsersAuthRow>();
 
-    const accountStatus = (urow?.account_status as string | undefined) ?? "active";
+    const accountStatus = urow?.account_status ?? "active";
+    const role = urow?.role as UserRole | undefined;
+    const activeAdmin =
+      !urowError &&
+      Boolean(urow) &&
+      isActiveAdminUser({
+        role: (role ?? "customer") as UserRole,
+        accountStatus: (accountStatus as "active" | "suspended") ?? "active",
+      });
 
     if (accountStatus === "suspended") {
       const suspendedOk =
@@ -66,12 +83,23 @@ export async function middleware(request: NextRequest) {
     }
 
     if (isDashboardOrAccountPath(pathname)) {
-      if (!user.email_confirmed_at && !allowsSessionWithoutVerifiedEmail(pathname)) {
+      const emailRelaxed =
+        allowsSessionWithoutVerifiedEmail(pathname) ||
+        allowsUnverifiedEmailForDashboard(pathname, activeAdmin);
+
+      if (!user.email_confirmed_at && !emailRelaxed) {
         return NextResponse.redirect(new URL(AuthRoutes.verifyEmail, request.url));
       }
 
-      if (isAdminDashboardPath(pathname) && urow?.role !== "admin") {
-        return NextResponse.redirect(new URL("/dashboard", request.url));
+      if (isAdminDashboardPath(pathname)) {
+        if (urowError || !urow) {
+          return supabaseResponse;
+        }
+
+        if (!activeAdmin) {
+          const dest = role ? dashboardPathForRole(role) : AppRoutes.dashboardCustomer;
+          return NextResponse.redirect(new URL(dest, request.url));
+        }
       }
     }
   }

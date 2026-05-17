@@ -40,6 +40,15 @@ export function allowsSessionWithoutVerifiedEmail(pathname: string): boolean {
   return AUTH_EMAIL_RELAXED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+/** Active admins may use dashboard surfaces before email confirmation (role from `public.users`). */
+export function allowsUnverifiedEmailForDashboard(
+  pathname: string,
+  isActiveAdmin: boolean,
+): boolean {
+  if (!isActiveAdmin) return false;
+  return isDashboardOrAccountPath(pathname);
+}
+
 export const AuthRoutes = {
   login: AppRoutes.login,
   signup: AppRoutes.signup,
