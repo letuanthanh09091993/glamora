@@ -28,6 +28,8 @@ export default function HomePage() {
   useEffect(() => {
     void (async () => {
       const [a, m] = await Promise.all([listPublicMakeupArtists(), listPublicModels()]);
+      console.log("[MARKETPLACE DEBUG] / homepage fetched artists count:", a.length);
+      console.log("[MARKETPLACE DEBUG] / homepage fetched artist ids:", a.map((x) => x.id));
       setArtists(a);
       setModels(m);
     })();

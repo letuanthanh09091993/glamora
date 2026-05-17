@@ -189,6 +189,24 @@ const userSelect = `
   artist_portfolios (*)
 `;
 
+/** Marketplace directory listing — profiles only (avoids nested portfolio RLS/query failures). */
+const publicDirectoryUserSelect = `
+  id,
+  username,
+  auth_login_email,
+  phone_number,
+  role,
+  is_public_profile,
+  contact_email,
+  created_at,
+  account_status,
+  artist_verification_status,
+  artist_verification_note,
+  email_verified_at,
+  last_login_at,
+  profiles (*)
+`;
+
 const principalSelect =
   "id, username, role, account_status, phone_number, is_public_profile, auth_login_email, contact_email, created_at";
 
@@ -286,24 +304,105 @@ export async function fetchUserByUsername(
   return mapUserDbRowToAccount(data as UserDbRow);
 }
 
+function logPublicArtistDiscovery(stage: string, payload: Record<string, unknown>) {
+  console.log("[MARKETPLACE DEBUG]", stage, payload);
+}
+
 export async function listPublicMakeupArtists(supabase: SupabaseClient): Promise<UserAccount[]> {
-  const { data, error } = await supabase
+  const verificationStatuses = [...PUBLIC_MAKEUP_ARTIST_VERIFICATION_STATUSES];
+
+  logPublicArtistDiscovery("query start", {
+    table: "public.users",
+    role: "makeup_artist",
+    is_public_profile: true,
+    artist_verification_status: verificationStatuses,
+    note: "account_status filtered in app after fetch (active only)",
+  });
+
+  const { data, error, count } = await supabase
     .from("users")
-    .select(userSelect)
+    .select(publicDirectoryUserSelect, { count: "exact" })
     .eq("role", "makeup_artist")
-    .eq("account_status", "active")
     .eq("is_public_profile", true)
-    .in("artist_verification_status", [...PUBLIC_MAKEUP_ARTIST_VERIFICATION_STATUSES])
+    .in("artist_verification_status", verificationStatuses)
     .order("username", { ascending: true });
 
+  logPublicArtistDiscovery("raw Supabase response", {
+    error: error?.message ?? null,
+    errorCode: error?.code ?? null,
+    errorDetails: error?.details ?? null,
+    rawRowCount: data?.length ?? 0,
+    countExact: count ?? null,
+    rawIds: (data ?? []).map((row) => (row as { id?: string }).id),
+    rawVerification: (data ?? []).map((row) => ({
+      id: (row as { id?: string }).id,
+      artist_verification_status: (row as { artist_verification_status?: string })
+        .artist_verification_status,
+      account_status: (row as { account_status?: string }).account_status,
+      is_public_profile: (row as { is_public_profile?: boolean }).is_public_profile,
+    })),
+  });
+
   if (error) {
-    console.warn("[listPublicMakeupArtists]", error.message);
+    logPublicArtistDiscovery("primary query failed — retry users+profiles without verification filter", {
+      message: error.message,
+    });
+
+    const fallback = await supabase
+      .from("users")
+      .select(publicDirectoryUserSelect)
+      .eq("role", "makeup_artist")
+      .eq("is_public_profile", true)
+      .order("username", { ascending: true });
+
+    logPublicArtistDiscovery("fallback raw response", {
+      error: fallback.error?.message ?? null,
+      rawRowCount: fallback.data?.length ?? 0,
+      rawIds: (fallback.data ?? []).map((row) => (row as { id?: string }).id),
+    });
+
+    if (fallback.error || !fallback.data) {
+      return [];
+    }
+
+    const mappedFallback = (fallback.data as UserDbRow[]).map(mapUserDbRowToAccount);
+    const filteredFallback = filterPublicDiscoverableMakeupArtists(mappedFallback);
+    logPublicArtistDiscovery("fallback filtered count", {
+      mappedCount: mappedFallback.length,
+      filteredCount: filteredFallback.length,
+      filteredIds: filteredFallback.map((a) => a.id),
+    });
+    return filteredFallback;
+  }
+
+  if (!data) {
+    logPublicArtistDiscovery("no data rows", { filteredCount: 0 });
     return [];
   }
-  if (!data) return [];
 
   const mapped = (data as UserDbRow[]).map(mapUserDbRowToAccount);
-  return filterPublicDiscoverableMakeupArtists(mapped);
+  const filtered = filterPublicDiscoverableMakeupArtists(mapped);
+
+  logPublicArtistDiscovery("filtered after app rules", {
+    mappedCount: mapped.length,
+    filteredCount: filtered.length,
+    filteredIds: filtered.map((a) => a.id),
+    sampleArtist:
+      filtered[0] != null
+        ? {
+            id: filtered[0].id,
+            username: filtered[0].username,
+            role: filtered[0].role,
+            isPublicProfile: filtered[0].isPublicProfile,
+            accountStatus: filtered[0].accountStatus,
+            artistVerificationStatus: filtered[0].artistVerificationStatus,
+            rating: filtered[0].rating,
+            location: filtered[0].location,
+          }
+        : null,
+  });
+
+  return filtered;
 }
 
 export async function listPublicModels(supabase: SupabaseClient): Promise<UserAccount[]> {

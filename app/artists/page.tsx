@@ -121,7 +121,21 @@ export default function ArtistsIndexPage() {
   const catalog = isDemoMode ? demoSynthArtists : artists;
 
   useEffect(() => {
-    void listPublicMakeupArtists().then(setArtists);
+    void listPublicMakeupArtists().then((fetched) => {
+      console.log("[MARKETPLACE DEBUG] /artists fetched artists count:", fetched.length);
+      console.log("[MARKETPLACE DEBUG] /artists fetched artist ids:", fetched.map((a) => a.id));
+      if (fetched[0]) {
+        console.log("[MARKETPLACE DEBUG] /artists sample artist JSON:", {
+          id: fetched[0].id,
+          username: fetched[0].username,
+          role: fetched[0].role,
+          isPublicProfile: fetched[0].isPublicProfile,
+          accountStatus: fetched[0].accountStatus,
+          artistVerificationStatus: fetched[0].artistVerificationStatus,
+        });
+      }
+      setArtists(fetched);
+    });
   }, []);
 
   useEffect(() => {
@@ -165,6 +179,28 @@ export default function ArtistsIndexPage() {
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
   const pageItems = filteredSorted.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+  useEffect(() => {
+    console.log("[MARKETPLACE DEBUG] /artists render state", {
+      fetchedCount: artists.length,
+      isDemoMode,
+      catalogCount: catalog.length,
+      filteredCount: filteredSorted.length,
+      pageItemsCount: pageItems.length,
+      activeFilters: { query, sortKey, minRating, styleFilter, districtFilter },
+    });
+  }, [
+    artists.length,
+    isDemoMode,
+    catalog.length,
+    filteredSorted.length,
+    pageItems.length,
+    query,
+    sortKey,
+    minRating,
+    styleFilter,
+    districtFilter,
+  ]);
 
   useEffect(() => {
     if (page !== safePage) setPage(safePage);
