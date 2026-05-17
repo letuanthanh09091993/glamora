@@ -18,11 +18,17 @@ import {
   signUp as signUpSupabase,
   updateCurrentUser,
 } from "@/lib/auth-storage";
+import { resolveLoginRedirect } from "@/lib/auth/resolve-login-redirect";
 import { syncProfileFromSession } from "@/lib/auth/sync-profile-from-session";
 import { waitForBrowserSession } from "@/lib/auth/wait-for-browser-session";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type LoginResult = { ok: boolean; messageKey: string; role?: UserRole };
+type LoginResult = {
+  ok: boolean;
+  messageKey: string;
+  role?: UserRole;
+  redirectTo?: string;
+};
 
 type AuthContextValue = {
   user: UserAccount | null;
@@ -169,6 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ok: false, messageKey: "authMessages.networkError" };
         }
 
+        const { role, redirectTo } = await resolveLoginRedirect(sb, session.user.id);
+
         await refreshUser(session);
         const synced = await syncProfileFromSession(sb, session);
         applyProfileSync(synced);
@@ -176,7 +184,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {
           ok: true,
           messageKey: result.messageKey,
-          role: synced.user?.role,
+          role,
+          redirectTo,
         };
       },
       async signUp(payload) {

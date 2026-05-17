@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { AppRoutes } from "@/lib/app-routes";
+import { postLoginPathForRole } from "@/lib/auth/post-login-path";
 
 export default async function AdminDashboardLayout({
   children,
@@ -8,7 +8,11 @@ export default async function AdminDashboardLayout({
   const { dbUser } = await getCurrentUser();
 
   if (dbUser.role !== "admin" || dbUser.account_status !== "active") {
-    redirect(AppRoutes.dashboardCustomer);
+    const redirectTo =
+      dbUser.role === "admin" && dbUser.account_status !== "active"
+        ? postLoginPathForRole(null)
+        : postLoginPathForRole(dbUser.role);
+    redirect(redirectTo);
   }
 
   return <>{children}</>;
