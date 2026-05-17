@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { AdminAuthDebugPanel } from "@/components/admin/admin-auth-debug-panel";
 import { AdminConsoleShell } from "@/components/admin/admin-console-shell";
 import { RequirePermission } from "@/components/auth/require-permission";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -212,7 +213,11 @@ export default function AdminAccountsPage() {
   }
 
   return (
-    <RequirePermission permission="canAccessAdmin">
+    <div className="min-h-screen bg-slate-100 p-4 sm:p-6">
+      <div className="mx-auto max-w-[1600px]">
+        <AdminAuthDebugPanel />
+      </div>
+      <RequirePermission permission="canAccessAdmin">
       <AdminConsoleShell>
         {notice ? (
           <div className="mb-6">
@@ -553,5 +558,6 @@ export default function AdminAccountsPage() {
         <p className="mt-10 max-w-3xl text-xs leading-relaxed text-slate-500">{t("dashboard.adminAccounts.auditFootnote")}</p>
       </AdminConsoleShell>
     </RequirePermission>
+    </div>
   );
 }
