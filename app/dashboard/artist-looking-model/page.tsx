@@ -1,15 +1,13 @@
 "use client";
 
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { RequireRole } from "@/components/auth/require-role";
 import { useLanguage } from "@/components/providers/language-provider";
 
 export default function ArtistLookingModelDashboardPage() {
   const { t } = useLanguage();
 
   return (
-    <RequireRole role="artist_looking_model">
-      <DashboardShell title={t("dashboard.castingTitle")}>
+          <DashboardShell title={t("dashboard.castingTitle")}>
         <div className="grid gap-4 md:grid-cols-3">
           <Card title={t("dashboard.castingCards.openTitle")} value={t("dashboard.castingCards.openValue")} />
           <Card title={t("dashboard.castingCards.savedTitle")} value={t("dashboard.castingCards.savedValue")} />
@@ -24,7 +22,6 @@ export default function ArtistLookingModelDashboardPage() {
           ]}
         />
       </DashboardShell>
-    </RequireRole>
   );
 }
 

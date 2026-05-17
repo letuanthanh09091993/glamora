@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { RequireRole } from "@/components/auth/require-role";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { AppButton } from "@/components/ui/app-button";
@@ -17,7 +16,6 @@ export default function CustomerDashboardPage() {
   const { t } = useLanguage();
 
   return (
-    <RequireRole role="customer">
       <DashboardShell title={t("dashboard.customerTitle")}>
         <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-pink-100 bg-gradient-to-r from-pink-50 to-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -35,7 +33,6 @@ export default function CustomerDashboardPage() {
         </div>
         <CustomerBookingStats />
       </DashboardShell>
-    </RequireRole>
   );
 }
 

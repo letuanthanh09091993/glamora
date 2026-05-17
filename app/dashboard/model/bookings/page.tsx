@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { RequireRole } from "@/components/auth/require-role";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { BookingCalendar } from "@/components/booking/booking-calendar";
@@ -49,8 +48,7 @@ export default function ModelBookingsPage() {
   }
 
   return (
-    <RequireRole role="model">
-      <DashboardShell title={t("booking.modelDashboardTitle")}>
+          <DashboardShell title={t("booking.modelDashboardTitle")}>
         {notice ? (
           <div className="mb-4">
             <Notice type={notice.type} message={notice.message} />
@@ -152,6 +150,5 @@ export default function ModelBookingsPage() {
           </div>
         </div>
       </DashboardShell>
-    </RequireRole>
   );
 }

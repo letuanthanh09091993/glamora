@@ -1,15 +1,13 @@
 "use client";
 
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { RequireRole } from "@/components/auth/require-role";
 import { useLanguage } from "@/components/providers/language-provider";
 
 export default function ModelDashboardPage() {
   const { t } = useLanguage();
 
   return (
-    <RequireRole role="model">
-      <DashboardShell title={t("dashboard.modelTitle")}>
+          <DashboardShell title={t("dashboard.modelTitle")}>
         <div className="grid gap-4 md:grid-cols-3">
           <Card title={t("dashboard.modelCards.portfolioTitle")} value={t("dashboard.modelCards.portfolioValue")} />
           <Card title={t("dashboard.modelCards.measurementsTitle")} value={t("dashboard.modelCards.measurementsValue")} />
@@ -24,7 +22,6 @@ export default function ModelDashboardPage() {
           ]}
         />
       </DashboardShell>
-    </RequireRole>
   );
 }
 

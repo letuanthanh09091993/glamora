@@ -14,7 +14,7 @@ export const AppRoutes = {
   accountSuspended: "/auth/account-suspended",
   account: "/account",
 
-  /** Legacy dashboard entry (RoleGate redirects role → concrete dashboard) */
+  /** Legacy dashboard entry */
   dashboard: "/dashboard",
 
   /** Current role dashboards (v1) */

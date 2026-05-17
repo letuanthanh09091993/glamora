@@ -8,7 +8,6 @@ import { Notice } from "@/components/ui/notice";
 import { HcmDistrictMultiSelect } from "@/components/ui/hcm-district-multi-select";
 import { SuggestTagsField } from "@/components/ui/suggest-tags-field";
 import { useAuth } from "@/components/providers/auth-provider";
-import { RoleGate } from "@/components/auth/role-gate";
 import { useLanguage } from "@/components/providers/language-provider";
 import type { ServicePackageRow } from "@/lib/auth-types";
 import { COSMETIC_BRAND_SUGGESTIONS } from "@/lib/cosmetic-brand-suggestions";
@@ -25,11 +24,7 @@ import {
 import { formatVndDots, vndDigitsOnly } from "@/lib/vnd-format";
 
 export default function AccountPage() {
-  return (
-    <RoleGate>
-      <AccountForm />
-    </RoleGate>
-  );
+  return <AccountForm />;
 }
 
 function AccountForm() {

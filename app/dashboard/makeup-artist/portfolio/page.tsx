@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { PortfolioAlbumGrid, groupPortfolioByAlbum } from "@/components/portfolio/portfolio-album-grid";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { RequireRole } from "@/components/auth/require-role";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { AppButton } from "@/components/ui/app-button";
@@ -174,8 +173,7 @@ export default function ArtistPortfolioPreviewPage() {
   );
 
   return (
-    <RequireRole role="makeup_artist">
-      <DashboardShell title={t("dashboard.portfolioPreviewPage.title")} hideProfileCard>
+          <DashboardShell title={t("dashboard.portfolioPreviewPage.title")} hideProfileCard>
         <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm sm:p-8">
           <h2 className="text-lg font-semibold text-black">{t("dashboard.portfolioPreviewPage.albumViewTitle")}</h2>
           <p className="mt-1 text-sm leading-relaxed text-gray-600">
@@ -239,6 +237,5 @@ export default function ArtistPortfolioPreviewPage() {
           </div>
         </div>
       </DashboardShell>
-    </RequireRole>
   );
 }

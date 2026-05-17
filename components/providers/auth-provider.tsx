@@ -208,19 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyProfileSync, hasAuthSession, isEmailVerified, isReady, refreshUser, user],
   );
 
-  return (
-    <AuthContext.Provider value={value}>
-      {hasAuthSession ? (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-[100] bg-sky-600 py-1.5 text-center text-xs font-bold tracking-wide text-white shadow-lg"
-          role="status"
-        >
-          AUTH SESSION ACTIVE
-        </div>
-      ) : null}
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

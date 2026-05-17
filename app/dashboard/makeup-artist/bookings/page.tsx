@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { RequireRole } from "@/components/auth/require-role";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { BookingStatusBadge } from "@/components/booking/booking-status-badge";
@@ -438,8 +437,7 @@ export default function ArtistBookingsPage() {
   }
 
   return (
-    <RequireRole role="makeup_artist">
-      <DashboardShell title={t("booking.artistDashboardTitle")} hideProfileCard>
+          <DashboardShell title={t("booking.artistDashboardTitle")} hideProfileCard>
         {notice ? (
           <div className="mb-4">
             <Notice type={notice.type} message={notice.message} />
@@ -638,6 +636,5 @@ export default function ArtistBookingsPage() {
           </Link>
         </div>
       </DashboardShell>
-    </RequireRole>
   );
 }

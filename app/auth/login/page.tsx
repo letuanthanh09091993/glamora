@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { resolvePostLoginPath } from "@/lib/auth/resolve-post-login-path";
+import { postLoginPathForRole } from "@/lib/auth/post-login-path";
 import { AppRoutes } from "@/lib/app-routes";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AppButton } from "@/components/ui/app-button";
@@ -14,7 +14,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, hasAuthSession, isReady, user } = useAuth();
+  const { login } = useAuth();
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,21 +22,6 @@ export default function LoginPage() {
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(
     null,
   );
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("registered") === "1") {
-      setNotice({ type: "success", message: t("authMessages.accountCreated") });
-      window.history.replaceState({}, "", "/auth/login");
-    }
-  }, [t]);
-
-  useEffect(() => {
-    if (!isReady || !hasAuthSession) return;
-    const params = new URLSearchParams(window.location.search);
-    const destination = resolvePostLoginPath(params.get("next"), user?.role);
-    router.replace(destination);
-  }, [hasAuthSession, isReady, router, user?.role]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -52,11 +37,7 @@ export default function LoginPage() {
     }
 
     setNotice({ type: "success", message: t(result.messageKey) });
-
-    const params = new URLSearchParams(window.location.search);
-    const destination = resolvePostLoginPath(params.get("next"), result.role);
-
-    router.replace(destination);
+    router.replace(postLoginPathForRole(result.role));
     router.refresh();
   }
 

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { RequireRole } from "@/components/auth/require-role";
 import { useLanguage } from "@/components/providers/language-provider";
 import { AppButton } from "@/components/ui/app-button";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -44,8 +43,7 @@ export default function MakeupArtistDashboardPage() {
   }, [completedClientBookings, user?.rating]);
 
   return (
-    <RequireRole role="makeup_artist">
-      <DashboardShell title={t("dashboard.artistTitle")}>
+          <DashboardShell title={t("dashboard.artistTitle")}>
         <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-pink-100 bg-gradient-to-r from-pink-50 to-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-black">{t("dashboard.artistBookingPanel.title")}</h2>
@@ -70,7 +68,6 @@ export default function MakeupArtistDashboardPage() {
           ]}
         />
       </DashboardShell>
-    </RequireRole>
   );
 }
 

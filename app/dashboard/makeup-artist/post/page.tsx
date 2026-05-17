@@ -4,7 +4,6 @@ import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { RequireRole } from "@/components/auth/require-role";
 import { useLanguage } from "@/components/providers/language-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { PortfolioVideoPreview } from "@/components/portfolio/portfolio-video-preview";
@@ -215,8 +214,7 @@ function MakeupArtistPostPageInner() {
       : t("dashboard.artistPostPage.filesPickedNone");
 
   return (
-    <RequireRole role="makeup_artist">
-      <DashboardShell title={t("dashboard.artistPostPage.title")} hideProfileCard>
+          <DashboardShell title={t("dashboard.artistPostPage.title")} hideProfileCard>
         <div className="mb-6 rounded-3xl border border-black/10 bg-white p-6 shadow-sm sm:p-8">
           <p className="text-sm text-gray-600">{t("dashboard.artistPostPage.subtitle")}</p>
           <p className="mt-2 text-xs text-gray-500">{t("dashboard.artistPostPage.hint")}</p>
@@ -408,21 +406,18 @@ function MakeupArtistPostPageInner() {
           </form>
         </div>
       </DashboardShell>
-    </RequireRole>
   );
 }
 
 function MakeupArtistPostPageFallback() {
   const { t } = useLanguage();
   return (
-    <RequireRole role="makeup_artist">
-      <DashboardShell title={t("dashboard.artistPostPage.title")} hideProfileCard>
+          <DashboardShell title={t("dashboard.artistPostPage.title")} hideProfileCard>
         <div
           className="mb-6 min-h-[40vh] rounded-3xl border border-black/10 bg-white p-6 shadow-sm sm:p-8"
           aria-busy
         />
       </DashboardShell>
-    </RequireRole>
   );
 }
 
