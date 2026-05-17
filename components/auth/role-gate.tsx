@@ -33,7 +33,14 @@ export function RoleGate({ children }: { children: React.ReactNode }) {
 
     if (!user) {
       redirectingRef.current = true;
-      router.replace(AuthRoutes.login);
+      if (isAdminDashboardPath(pathname)) {
+        console.log("[glamora-admin-auth-client]", {
+          step: "redirect",
+          pathname,
+          reason: "not_logged_in",
+        });
+      }
+      router.replace(`${AuthRoutes.login}?next=${encodeURIComponent(pathname)}`);
       return;
     }
 
@@ -47,7 +54,16 @@ export function RoleGate({ children }: { children: React.ReactNode }) {
 
     if (isAdminDashboardPath(pathname) && !activeAdmin) {
       redirectingRef.current = true;
-      router.replace(dashboardPathForRole(user.role));
+      const dest = dashboardPathForRole(user.role);
+      console.log("[glamora-admin-auth-client]", {
+        step: "redirect",
+        pathname,
+        reason: user.role !== "admin" ? "not_admin" : "inactive_account",
+        fetchedDbRole: user.role,
+        fetchedAccountStatus: user.accountStatus,
+        redirectTo: dest,
+      });
+      router.replace(dest);
       return;
     }
 
@@ -64,7 +80,10 @@ export function RoleGate({ children }: { children: React.ReactNode }) {
 
     if (pathname === "/dashboard") {
       redirectingRef.current = true;
-      router.replace(ROLE_META[user.role].dashboardPath);
+      const dest = ROLE_META[user.role].dashboardPath;
+      if (dest !== pathname) {
+        router.replace(dest);
+      }
     }
   }, [isEmailVerified, isReady, pathname, router, user]);
 

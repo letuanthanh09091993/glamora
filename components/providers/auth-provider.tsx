@@ -16,8 +16,12 @@ import {
   signUp as signUpSupabase,
   updateCurrentUser,
 } from "@/lib/auth-storage";
+import { accountFromPrincipal } from "@/lib/auth/app-user";
 import { getBrowserSupabase } from "@/lib/supabase/browser-client";
-import { fetchUserAccountById } from "@/lib/supabase/users-repository";
+import {
+  fetchAppUserPrincipalById,
+  fetchUserAccountById,
+} from "@/lib/supabase/users-repository";
 
 type AuthContextValue = {
   user: UserAccount | null;
@@ -61,8 +65,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setIsEmailVerified(Boolean(authUser.email_confirmed_at));
+
+      const principal = await fetchAppUserPrincipalById(sb, authUser.id);
+      if (!principal || principal.id !== authUser.id) {
+        setUser(null);
+        return;
+      }
+
       const acc = await fetchUserAccountById(sb, authUser.id);
-      setUser(acc);
+      setUser(
+        acc
+          ? { ...acc, role: principal.role, accountStatus: principal.accountStatus }
+          : accountFromPrincipal(principal),
+      );
     } catch {
       setUser(null);
       setIsEmailVerified(false);

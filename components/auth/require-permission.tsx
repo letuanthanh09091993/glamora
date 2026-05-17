@@ -1,10 +1,11 @@
 "use client";
 
 import { ReactNode, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
 import { isActiveAdminUser, dashboardPathForRole } from "@/lib/auth/app-user";
+import { isAdminDashboardPath } from "@/lib/auth/rbac";
 import type { Permission } from "@/lib/permissions";
 import { hasPermission } from "@/lib/permissions";
 
@@ -17,6 +18,7 @@ export function RequirePermission({
 }) {
   const { user, isReady } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const { t } = useLanguage();
   const redirectingRef = useRef(false);
 
@@ -27,16 +29,37 @@ export function RequirePermission({
 
   useEffect(() => {
     if (!isReady || !user || redirectingRef.current) return;
+
     if (!hasPermission(user.role, permission)) {
       redirectingRef.current = true;
-      router.replace(dashboardPathForRole(user.role));
+      const dest = dashboardPathForRole(user.role);
+      if (permission === "canAccessAdmin" && isAdminDashboardPath(pathname)) {
+        console.log("[glamora-admin-auth-client]", {
+          step: "redirect",
+          pathname,
+          reason: "insufficient_permission",
+          fetchedDbRole: user.role,
+          redirectTo: dest,
+        });
+      }
+      router.replace(dest);
       return;
     }
+
     if (permission === "canAccessAdmin" && !isActiveAdminUser(user)) {
       redirectingRef.current = true;
-      router.replace(dashboardPathForRole(user.role));
+      const dest = dashboardPathForRole(user.role);
+      console.log("[glamora-admin-auth-client]", {
+        step: "redirect",
+        pathname,
+        reason: user.role !== "admin" ? "not_admin" : "inactive_account",
+        fetchedDbRole: user.role,
+        fetchedAccountStatus: user.accountStatus,
+        redirectTo: dest,
+      });
+      router.replace(dest);
     }
-  }, [isReady, permission, router, user]);
+  }, [isReady, pathname, permission, router, user]);
 
   useEffect(() => {
     redirectingRef.current = false;

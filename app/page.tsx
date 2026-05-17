@@ -9,6 +9,7 @@ import { listPublicMakeupArtists, listPublicModels } from "@/lib/auth-storage";
 import { UserAccount } from "@/lib/auth-types";
 import { useAuth } from "@/components/providers/auth-provider";
 import { BeautyMagazineSection } from "@/components/home/beauty-magazine-section";
+import { dashboardPathForRole } from "@/lib/auth/app-user";
 import { AppRoutes } from "@/lib/app-routes";
 import { FEATURED_DEMO_SLUGS } from "@/lib/featured-demo-profiles";
 import { MODEL_DEMO_SLUGS } from "@/lib/model-demo-profiles";
@@ -73,7 +74,10 @@ export default function HomePage() {
                   <span className={shell.welcomeAccentClass}>{t("home.welcomeBack")}</span>, {user.username}
                 </p>
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Link href="/dashboard" className={shell.navLinkClass}>
+                  <Link
+                    href={user.role ? dashboardPathForRole(user.role) : AppRoutes.dashboard}
+                    className={shell.navLinkClass}
+                  >
                     {t("home.navPersonalHome")}
                   </Link>
                   <HomeBookingBell />

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchDbAuthRow } from "@/lib/auth/fetch-db-auth-row";
 import {
   accountFromPrincipal,
   type AppUserPrincipal,
@@ -216,13 +217,31 @@ export async function fetchAppUserPrincipalById(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<AppUserPrincipal | null> {
+  const authRow = await fetchDbAuthRow(supabase, userId);
+  if (!authRow.row || authRow.row.id !== userId) return null;
+
   const { data, error } = await supabase
     .from("users")
     .select(principalSelect)
     .eq("id", userId)
     .maybeSingle();
-  if (error || !data) return null;
-  return mapPrincipalRow(data);
+
+  if (data && !error) {
+    return mapPrincipalRow({
+      ...data,
+      role: authRow.row.role,
+      account_status: authRow.row.account_status,
+    });
+  }
+
+  return {
+    id: authRow.row.id,
+    username: `user-${authRow.row.id.slice(0, 8)}`,
+    role: authRow.row.role,
+    accountStatus: authRow.row.account_status,
+    phoneNumber: "",
+    isPublicProfile: false,
+  };
 }
 
 export async function fetchUserAccountById(

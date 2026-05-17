@@ -1,5 +1,5 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { fetchDbAuthRow } from "@/lib/auth/fetch-db-auth-row";
 import { isActiveAdminUser, dashboardPathForRole } from "@/lib/auth/app-user";
 import {
   allowsSessionWithoutVerifiedEmail,
@@ -9,20 +9,20 @@ import {
   isDashboardOrAccountPath,
 } from "@/lib/auth/rbac";
 import { AppRoutes } from "@/lib/app-routes";
-import type { UserRole } from "@/lib/auth-types";
+import {
+  createMiddlewareSupabase,
+  redirectWithSupabaseCookies,
+} from "@/lib/supabase/middleware-client";
 
-type UsersAuthRow = {
-  role: string;
-  account_status: string | null;
-};
-
-const LOG_PREFIX = "[glamora-middleware-auth]";
-
-function logAuthCheck(step: string, details: Record<string, unknown>) {
-  console.log(LOG_PREFIX, step, details);
+function logAdminAuth(details: Record<string, unknown>) {
+  console.log("[glamora-admin-auth]", details);
 }
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const isDashboard = isDashboardOrAccountPath(pathname);
+  const isAdminPath = isAdminDashboardPath(pathname);
+
   let supabaseResponse = NextResponse.next({
     request: { headers: request.headers },
   });
@@ -30,165 +30,159 @@ export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  const pathname = request.nextUrl.pathname;
-
   if (!url || !anonKey) {
-    logAuthCheck("skip_no_supabase_env", { pathname });
+    logAdminAuth({ step: "skip_no_env", pathname, sessionExists: false });
     return supabaseResponse;
   }
 
-  const supabase = createServerClient(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = NextResponse.next({
-          request: { headers: request.headers },
-        });
-        cookiesToSet.forEach(({ name, value, options }) => {
-          supabaseResponse.cookies.set(name, value, options);
-        });
-      },
-    },
-  });
+  const { supabase, getResponse } = createMiddlewareSupabase(request, supabaseResponse);
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
-  const isDashboard = isDashboardOrAccountPath(pathname);
-  const isAdminPath = isAdminDashboardPath(pathname);
+  supabaseResponse = getResponse();
+
+  const sessionExists = Boolean(user);
+  const authUserId = user?.id ?? null;
+  const userEmail = user?.email ?? null;
 
   if (isAdminPath) {
     console.log("[ADMIN DEBUG USER]", user);
   }
 
-  logAuthCheck("session", {
+  logAdminAuth({
+    step: "session",
     pathname,
-    isDashboard,
     isAdminPath,
-    hasUser: Boolean(user),
-    authUserId: user?.id ?? null,
+    sessionExists,
+    authUserId,
+    userEmail,
+    authError: authError?.message ?? null,
     emailConfirmed: Boolean(user?.email_confirmed_at),
   });
 
   if (!user && isDashboard) {
+    const reason = "not_logged_in";
     if (isAdminPath) {
-      console.log("[ADMIN REDIRECT]", { reason: "not_logged_in" });
+      console.log("[ADMIN REDIRECT]", { reason });
     }
-    logAuthCheck("redirect_login_unauthenticated", { pathname });
+    logAdminAuth({ step: "redirect", pathname, reason, redirectTo: AuthRoutes.login });
     const login = new URL(AuthRoutes.login, request.url);
     login.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
-    return NextResponse.redirect(login);
+    return redirectWithSupabaseCookies(request, supabaseResponse, login);
   }
 
-  if (user) {
-    const { data: urow, error: urowError } = await supabase
-      .from("users")
-      .select("role, account_status")
-      .eq("id", user.id)
-      .maybeSingle<UsersAuthRow>();
+  if (!user) {
+    logAdminAuth({ step: "pass_through_anon", pathname });
+    return supabaseResponse;
+  }
 
-    const dbUser = urow;
+  const dbFetch = await fetchDbAuthRow(supabase, user.id);
+  const dbUser = dbFetch.row;
+  const role = dbUser?.role;
+  const accountStatus = dbUser?.account_status ?? "active";
+
+  if (isAdminPath) {
+    console.log("[ADMIN DB USER]", dbUser);
+  }
+
+  logAdminAuth({
+    step: "public_users",
+    pathname,
+    authUserId: user.id,
+    sessionExists: true,
+    userEmail,
+    dbSource: dbFetch.source,
+    dbError: dbFetch.error,
+    fetchedDbRole: role ?? null,
+    fetchedAccountStatus: accountStatus,
+    authUserMatchesDbRow: dbUser?.id === user.id,
+  });
+
+  const activeAdmin =
+    dbUser !== null &&
+    dbUser.id === user.id &&
+    isActiveAdminUser({ role: dbUser.role, accountStatus: dbUser.account_status });
+
+  if (accountStatus === "suspended") {
+    const suspendedOk =
+      pathname.startsWith(AuthRoutes.accountSuspended) || pathname.startsWith("/auth/");
+    if (!suspendedOk) {
+      const reason = "inactive_account";
+      logAdminAuth({ step: "redirect", pathname, reason, account_status: accountStatus });
+      return redirectWithSupabaseCookies(
+        request,
+        supabaseResponse,
+        new URL(AuthRoutes.accountSuspended, request.url),
+      );
+    }
+  }
+
+  if (isDashboard) {
+    const emailRelaxed =
+      allowsSessionWithoutVerifiedEmail(pathname) ||
+      allowsUnverifiedEmailForDashboard(pathname, activeAdmin);
+
+    if (!user.email_confirmed_at && !emailRelaxed) {
+      const reason = "email_not_verified";
+      logAdminAuth({ step: "redirect", pathname, reason, redirectTo: AuthRoutes.verifyEmail });
+      return redirectWithSupabaseCookies(
+        request,
+        supabaseResponse,
+        new URL(AuthRoutes.verifyEmail, request.url),
+      );
+    }
 
     if (isAdminPath) {
-      console.log("[ADMIN DB USER]", dbUser);
-    }
-
-    const accountStatus = urow?.account_status ?? "active";
-    const role = urow?.role as UserRole | undefined;
-    const activeAdmin =
-      !urowError &&
-      Boolean(urow) &&
-      isActiveAdminUser({
-        role: (role ?? "customer") as UserRole,
-        accountStatus: (accountStatus as "active" | "suspended") ?? "active",
-      });
-
-    logAuthCheck("public_users_row", {
-      pathname,
-      authUserId: user.id,
-      urowError: urowError?.message ?? null,
-      dbRole: urow?.role ?? null,
-      dbAccountStatus: urow?.account_status ?? null,
-      activeAdmin,
-    });
-
-    if (accountStatus === "suspended") {
-      const suspendedOk =
-        pathname.startsWith(AuthRoutes.accountSuspended) || pathname.startsWith("/auth/");
-      logAuthCheck("suspended_check", { pathname, accountStatus, suspendedOk });
-      if (!suspendedOk) {
-        logAuthCheck("redirect_account_suspended", { pathname, authUserId: user.id });
-        return NextResponse.redirect(new URL(AuthRoutes.accountSuspended, request.url));
-      }
-    }
-
-    if (isDashboard) {
-      const emailRelaxed =
-        allowsSessionWithoutVerifiedEmail(pathname) ||
-        allowsUnverifiedEmailForDashboard(pathname, activeAdmin);
-
-      logAuthCheck("email_verification", {
-        pathname,
-        emailConfirmed: Boolean(user.email_confirmed_at),
-        emailRelaxed,
-        activeAdmin,
-      });
-
-      if (!user.email_confirmed_at && !emailRelaxed) {
-        logAuthCheck("redirect_verify_email", { pathname, authUserId: user.id });
-        return NextResponse.redirect(new URL(AuthRoutes.verifyEmail, request.url));
-      }
-
-      if (isAdminPath) {
-        if (urowError || !urow) {
-          logAuthCheck("admin_defer_client_gate", {
-            pathname,
-            reason: urowError ? "users_row_error" : "users_row_missing",
-            urowError: urowError?.message ?? null,
-          });
-          return supabaseResponse;
-        }
-
-        if (!activeAdmin) {
-          if (role !== "admin") {
-            console.log("[ADMIN REDIRECT]", { reason: "not_admin", role });
-          } else if (accountStatus !== "active") {
-            console.log("[ADMIN REDIRECT]", { reason: "inactive_account", account_status: accountStatus });
-          }
-          const dest = role ? dashboardPathForRole(role) : AppRoutes.dashboardCustomer;
-          logAuthCheck("redirect_admin_denied", {
-            pathname,
-            authUserId: user.id,
-            dbRole: role,
-            dbAccountStatus: accountStatus,
-            activeAdmin,
-            redirectTo: dest,
-          });
-          return NextResponse.redirect(new URL(dest, request.url));
-        }
-
-        console.log("[ADMIN ACCESS GRANTED]", {
-          authUserId: user?.id,
-          email: user?.email,
-          role,
-          account_status: accountStatus,
-        });
-
-        logAuthCheck("admin_allowed", {
+      if (!dbUser) {
+        logAdminAuth({
+          step: "admin_defer_client",
           pathname,
-          authUserId: user.id,
-          dbRole: role,
-          dbAccountStatus: accountStatus,
+          reason: "users_row_missing",
+          dbError: dbFetch.error,
         });
+        return supabaseResponse;
       }
+
+      if (!activeAdmin) {
+        if (role !== "admin") {
+          console.log("[ADMIN REDIRECT]", { reason: "not_admin", role });
+        } else {
+          console.log("[ADMIN REDIRECT]", { reason: "inactive_account", account_status: accountStatus });
+        }
+        const dest = role ? dashboardPathForRole(role) : AppRoutes.dashboardCustomer;
+        logAdminAuth({
+          step: "redirect",
+          pathname,
+          reason: role !== "admin" ? "not_admin" : "inactive_account",
+          fetchedDbRole: role,
+          fetchedAccountStatus: accountStatus,
+          redirectTo: dest,
+        });
+        return redirectWithSupabaseCookies(request, supabaseResponse, new URL(dest, request.url));
+      }
+
+      console.log("[ADMIN ACCESS GRANTED]", {
+        authUserId: user.id,
+        email: user.email,
+        role,
+        account_status: accountStatus,
+      });
+
+      logAdminAuth({
+        step: "admin_granted",
+        pathname,
+        authUserId: user.id,
+        userEmail,
+        role,
+        account_status: accountStatus,
+      });
     }
   }
 
-  logAuthCheck("pass_through", { pathname, hasUser: Boolean(user) });
+  logAdminAuth({ step: "pass_through", pathname, sessionExists: true, authUserId: user.id });
   return supabaseResponse;
 }
 

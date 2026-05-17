@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { resolvePostLoginPath } from "@/lib/auth/resolve-post-login-path";
 import { AppRoutes } from "@/lib/app-routes";
+import { fetchAppUserPrincipalById } from "@/lib/supabase/users-repository";
+import { getBrowserSupabase } from "@/lib/supabase/browser-client";
+import type { UserRole } from "@/lib/auth-types";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
@@ -13,7 +17,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, refreshUser } = useAuth();
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,8 +44,21 @@ export default function LoginPage() {
 
     if (result.ok) {
       const params = new URLSearchParams(window.location.search);
-      const next = params.get("next");
-      const destination = next && next.startsWith("/") ? next : "/";
+      let role: UserRole | undefined;
+      try {
+        const sb = getBrowserSupabase();
+        const {
+          data: { user: authUser },
+        } = await sb.auth.getUser();
+        if (authUser) {
+          const principal = await fetchAppUserPrincipalById(sb, authUser.id);
+          role = principal?.role;
+        }
+      } catch {
+        /* use default destination */
+      }
+      await refreshUser();
+      const destination = resolvePostLoginPath(params.get("next"), role);
       setTimeout(() => router.push(destination), 500);
     }
   }
