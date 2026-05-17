@@ -77,8 +77,15 @@ export function BookingForm({ customerId, artistId, onCreated }: BookingFormProp
         contactPhone: trimmedPhone,
         serviceType,
       });
-    } catch {
-      setNotice({ type: "error", message: t("signup.fixErrors") });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setNotice({
+        type: "error",
+        message:
+          msg === "BOOKING_SLOT_UNAVAILABLE"
+            ? t("booking.errors.slotUnavailable")
+            : t("signup.fixErrors"),
+      });
       setLoading(false);
       return;
     }

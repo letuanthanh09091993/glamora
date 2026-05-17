@@ -74,6 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     void sb.auth.getSession().then(({ data: { session: initial } }) => {
+      if (initial) {
+        console.log("[SESSION RESTORED]", {
+          userId: initial.user.id,
+          email: initial.user.email ?? null,
+          expires_at: initial.expires_at ?? null,
+        });
+      }
       console.log("[AUTH PROVIDER SESSION]", {
         event: "INITIAL",
         sessionExists: Boolean(initial),

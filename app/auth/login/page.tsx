@@ -45,8 +45,12 @@ export default function LoginPage() {
       return;
     }
 
-    console.log("[LOGIN RESULT] access token exists:", Boolean(data.session?.access_token));
-    console.log("[LOGIN HARD REDIRECT]");
+    console.log("[LOGIN SUCCESS]", {
+      userId: data.user?.id ?? null,
+      email: data.user?.email ?? null,
+      hasAccessToken: Boolean(data.session?.access_token),
+    });
+    console.log("[DASHBOARD REDIRECT]", { redirectTo: AppRoutes.dashboard, via: "hard_navigation" });
 
     window.location.href = AppRoutes.dashboard;
   }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppRoutes } from "@/lib/app-routes";
 import type { UserRole } from "@/lib/auth-types";
+import { fetchDbAuthRow } from "@/lib/auth/fetch-db-auth-row";
 import { ROLE_META } from "@/lib/role-meta";
 import { createRouteSupabase } from "@/lib/supabase/create-route-supabase";
 
@@ -18,45 +19,44 @@ export default async function DashboardEntryPage() {
     error: authError,
   } = await supabase.auth.getUser();
 
-  console.log("[SERVER DASHBOARD USER]", {
-    userId: user?.id ?? null,
-    email: user?.email ?? null,
-    authError: authError?.message ?? null,
-  });
-
   if (authError || !user) {
-    console.log("[FINAL DASHBOARD REDIRECT]", {
+    console.log("[DASHBOARD REDIRECT]", {
       redirectTo: AppRoutes.login,
       reason: "no_authenticated_user",
     });
     redirect(AppRoutes.login);
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("users")
-    .select("role, account_status")
-    .eq("id", user.id)
-    .single();
+  const authRow = await fetchDbAuthRow(supabase, user.id);
 
-  console.log("[DB ROLE RESULT]", {
-    role: profile?.role ?? null,
-    account_status: profile?.account_status ?? null,
-    queryError: profileError?.message ?? null,
+  console.log("[ROLE FETCH]", {
+    userId: user.id,
+    role: authRow.row?.role ?? null,
+    account_status: authRow.row?.account_status ?? null,
+    source: authRow.source,
+    error: authRow.error,
   });
 
-  const accountStatus = profile?.account_status ?? "active";
-  if (accountStatus !== "active") {
-    console.log("[FINAL DASHBOARD REDIRECT]", {
+  if (!authRow.row) {
+    console.log("[DASHBOARD REDIRECT]", {
+      redirectTo: AppRoutes.login,
+      reason: "profile_not_found",
+    });
+    redirect(AppRoutes.login);
+  }
+
+  if (authRow.row.account_status !== "active") {
+    console.log("[DASHBOARD REDIRECT]", {
       redirectTo: AppRoutes.login,
       reason: "inactive_account",
     });
     redirect(AppRoutes.login);
   }
 
-  const role = profile?.role as UserRole | undefined;
-  const redirectTo = role ? dashboardPathForDbRole(role) : AppRoutes.dashboardCustomer;
+  const role = authRow.row.role as UserRole;
+  const redirectTo = dashboardPathForDbRole(role);
 
-  console.log("[FINAL DASHBOARD REDIRECT]", { redirectTo, role: role ?? null });
+  console.log("[DASHBOARD REDIRECT]", { redirectTo, role });
 
   redirect(redirectTo);
 }

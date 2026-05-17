@@ -15,6 +15,7 @@ export type AuthDebugServerSnapshot = {
     role: string | null;
     account_status: string | null;
     queryError: string | null;
+    source: string | null;
   };
   env: {
     hasSupabaseUrl: boolean;
@@ -94,6 +95,7 @@ export function AuthDebugClient({ server }: { server: AuthDebugServerSnapshot })
               {server.dbRole.account_status
                 ? ` (status: ${server.dbRole.account_status})`
                 : ""}
+              {server.dbRole.source ? ` (via ${server.dbRole.source})` : ""}
               {server.dbRole.queryError ? ` (error: ${server.dbRole.queryError})` : ""}
             </li>
             <li>

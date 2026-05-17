@@ -3,6 +3,7 @@ import {
   AuthDebugClient,
   type AuthDebugServerSnapshot,
 } from "@/components/debug/auth-debug-client";
+import { fetchDbAuthRow } from "@/lib/auth/fetch-db-auth-row";
 import { createRouteSupabase } from "@/lib/supabase/create-route-supabase";
 import { hasSupabaseAuthCookie } from "@/lib/supabase/server-cookie-debug";
 
@@ -20,9 +21,18 @@ export default async function DebugAuthPage() {
     error: authError,
   } = await supabase.auth.getUser();
 
-  const { data: profile, error: profileError } = user
-    ? await supabase.from("users").select("role, account_status").eq("id", user.id).single()
-    : { data: null, error: null };
+  const authRow = user ? await fetchDbAuthRow(supabase, user.id) : null;
+
+  if (authRow) {
+    console.log("[ROLE FETCH]", {
+      userId: user?.id ?? null,
+      role: authRow.row?.role ?? null,
+      account_status: authRow.row?.account_status ?? null,
+      source: authRow.source,
+      error: authRow.error,
+      context: "debug-auth",
+    });
+  }
 
   const server: AuthDebugServerSnapshot = {
     cookieNames,
@@ -33,9 +43,10 @@ export default async function DebugAuthPage() {
       error: authError?.message ?? null,
     },
     dbRole: {
-      role: profile?.role ?? null,
-      account_status: profile?.account_status ?? null,
-      queryError: profileError?.message ?? null,
+      role: authRow?.row?.role ?? null,
+      account_status: authRow?.row?.account_status ?? null,
+      queryError: authRow?.error ?? null,
+      source: authRow?.source ?? null,
     },
     env: {
       hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),

@@ -1,12 +1,7 @@
 "use client";
 
-import { AdminPlaceholderSection } from "@/components/admin/admin-placeholder-section";
+import { AdminBookingsManager } from "@/components/admin/admin-bookings-manager";
 
 export default function AdminBookingsPage() {
-  return (
-    <AdminPlaceholderSection
-      titleKey="dashboard.adminBookings.title"
-      subtitleKey="dashboard.adminBookings.subtitle"
-    />
-  );
+  return <AdminBookingsManager />;
 }
