@@ -1,37 +1,34 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { UserRole } from "@/lib/auth-types";
-import { fetchDbAuthRow } from "@/lib/auth/fetch-db-auth-row";
-import { postLoginPathForRole } from "@/lib/auth/post-login-path";
+import { AppRoutes } from "@/lib/app-routes";
 
 export type LoginRedirectResult = {
-  role: UserRole | null;
   redirectTo: string;
+  role: string | null | undefined;
 };
 
-/**
- * Post-login destination from `public.users.role` (not client profile cache).
- */
+/** Role-based post-login path from `public.users`. */
 export async function resolveLoginRedirect(
   supabase: SupabaseClient,
-  authUserId: string,
+  userId: string,
 ): Promise<LoginRedirectResult> {
-  const maxAttempts = 4;
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", userId)
+    .single();
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const { row } = await fetchDbAuthRow(supabase, authUserId);
+  console.log("[LOGIN SUCCESS]", {
+    userId,
+    role: profile?.role,
+  });
 
-    if (row?.role) {
-      const redirectTo = postLoginPathForRole(row.role);
-      console.log("[LOGIN REDIRECT]", { role: row.role, redirectTo });
-      return { role: row.role, redirectTo };
-    }
+  const redirectTo =
+    profile?.role === "admin" ? AppRoutes.dashboardAdmin : AppRoutes.dashboardCustomer;
 
-    if (attempt < maxAttempts - 1) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-  }
+  console.log("[LOGIN REDIRECT]", {
+    redirectTo:
+      profile?.role === "admin" ? AppRoutes.dashboardAdmin : AppRoutes.dashboardCustomer,
+  });
 
-  const redirectTo = postLoginPathForRole(null);
-  console.log("[LOGIN REDIRECT]", { role: null, redirectTo });
-  return { role: null, redirectTo };
+  return { role: profile?.role, redirectTo };
 }

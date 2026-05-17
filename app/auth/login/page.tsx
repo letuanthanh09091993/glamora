@@ -3,17 +3,16 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { UserRole } from "@/lib/auth-types";
-import { postLoginPathForRole } from "@/lib/auth/post-login-path";
 import { AppRoutes } from "@/lib/app-routes";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { resolveLoginRedirect } from "@/lib/auth/resolve-login-redirect";
+import { waitForBrowserSession } from "@/lib/auth/wait-for-browser-session";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
 import { Notice } from "@/components/ui/notice";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,35 +31,27 @@ export default function LoginPage() {
     setNotice(null);
 
     const result = await login(email, password);
-    setLoading(false);
-
     if (!result.ok) {
+      setLoading(false);
       setNotice({ type: "error", message: t(result.messageKey) });
       return;
     }
 
-    setNotice({ type: "success", message: t(result.messageKey) });
+    const supabase = getSupabaseBrowserClient();
+    const session = await waitForBrowserSession(supabase);
+    const user = session?.user ?? (await supabase.auth.getUser()).data.user;
 
-    let redirectTo = result.redirectTo;
-    let role: UserRole | null | undefined = result.role;
-
-    if (!redirectTo) {
-      const sb = getSupabaseBrowserClient();
-      const {
-        data: { user: authUser },
-      } = await sb.auth.getUser();
-      if (authUser) {
-        const resolved = await resolveLoginRedirect(sb, authUser.id);
-        redirectTo = resolved.redirectTo;
-        role = resolved.role;
-      }
+    if (!user) {
+      setLoading(false);
+      setNotice({ type: "error", message: t("authMessages.networkError") });
+      return;
     }
 
-    redirectTo = redirectTo ?? postLoginPathForRole(role);
-    console.log("[LOGIN REDIRECT]", { role, redirectTo });
+    const { redirectTo } = await resolveLoginRedirect(supabase, user.id);
 
-    router.replace(redirectTo);
-    router.refresh();
+    setLoading(false);
+    setNotice({ type: "success", message: t(result.messageKey) });
+    router.push(redirectTo);
   }
 
   return (
