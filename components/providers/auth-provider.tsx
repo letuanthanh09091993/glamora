@@ -26,7 +26,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 type LoginResult = {
   ok: boolean;
   messageKey: string;
-  role?: UserRole;
+  role?: UserRole | null;
   redirectTo?: string;
 };
 
