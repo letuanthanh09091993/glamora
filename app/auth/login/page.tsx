@@ -4,7 +4,6 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppRoutes } from "@/lib/app-routes";
-import { resolveLoginRedirect } from "@/lib/auth/resolve-login-redirect";
 import { waitForBrowserSession } from "@/lib/auth/wait-for-browser-session";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AppButton } from "@/components/ui/app-button";
@@ -39,19 +38,15 @@ export default function LoginPage() {
 
     const supabase = getSupabaseBrowserClient();
     const session = await waitForBrowserSession(supabase);
-    const user = session?.user ?? (await supabase.auth.getUser()).data.user;
-
-    if (!user) {
+    if (!session?.user) {
       setLoading(false);
       setNotice({ type: "error", message: t("authMessages.networkError") });
       return;
     }
 
-    const { redirectTo } = await resolveLoginRedirect(supabase, user.id);
-
     setLoading(false);
     setNotice({ type: "success", message: t(result.messageKey) });
-    router.push(redirectTo);
+    router.push(AppRoutes.dashboard);
   }
 
   return (
