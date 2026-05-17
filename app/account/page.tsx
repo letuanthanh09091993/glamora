@@ -1,7 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
 import { Notice } from "@/components/ui/notice";
@@ -28,7 +28,6 @@ export default function AccountPage() {
 }
 
 function AccountForm() {
-  const router = useRouter();
   const { user, updateProfile } = useAuth();
   const { t, language } = useLanguage();
   const [displayName, setDisplayName] = useState("");
@@ -212,12 +211,16 @@ function AccountForm() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <AppButton variant="secondary" onClick={() => router.push("/")}>
-              {t("account.navHome")}
-            </AppButton>
-            <AppButton variant="secondary" onClick={() => router.push("/dashboard")}>
-              {t("account.navPersonalPage")}
-            </AppButton>
+            <Link href="/">
+              <AppButton variant="secondary" type="button">
+                {t("account.navHome")}
+              </AppButton>
+            </Link>
+            <Link href="/dashboard">
+              <AppButton variant="secondary" type="button">
+                {t("account.navPersonalPage")}
+              </AppButton>
+            </Link>
           </div>
         </div>
 

@@ -1,17 +1,12 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { logServerCookieCheck } from "@/lib/supabase/server-cookie-debug";
 
-/**
- * Server Supabase client (@supabase/ssr).
- * Uses get/getAll/setAll — compatible with Next.js App Router cookie store.
- */
-export async function createRouteSupabase(debugContext = "createRouteSupabase") {
+/** Server Supabase client for RSC, route handlers, and server pages. */
+export async function createRouteSupabase() {
   const cookieStore = await cookies();
-  logServerCookieCheck(cookieStore, debugContext);
-
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
   if (!url || !anonKey) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY");
   }

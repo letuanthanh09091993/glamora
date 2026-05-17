@@ -1,9 +1,13 @@
 "use client";
 
+/**
+ * Legacy module name — public directory + admin user management only.
+ * Auth sign-in/out lives in `lib/auth/auth-client.ts` and `AuthProvider`.
+ */
+
 import type {
   AccountStatus,
   ArtistVerificationStatus,
-  SignupPayload,
   UserAccount,
 } from "@/lib/auth-types";
 import { USER_ROLES } from "@/lib/auth-types";
@@ -15,53 +19,10 @@ import {
   listAllUsersForAdmin,
   listPublicMakeupArtists as queryPublicMakeupArtists,
   listPublicModels as queryPublicModels,
-  signInWithEmail,
-  signUpWithMetadata,
-  updateAuthenticatedProfile,
 } from "@/lib/supabase/users-repository";
 
 export async function getUsers(): Promise<UserAccount[]> {
   return listAllUsersForAdmin(getBrowserSupabase());
-}
-
-export async function getCurrentUser(): Promise<UserAccount | null> {
-  const sb = getBrowserSupabase();
-  const {
-    data: { session },
-  } = await sb.auth.getSession();
-  if (!session?.user) return null;
-  return fetchUserAccountById(sb, session.user.id);
-}
-
-export async function updateCurrentUser(
-  partial: Partial<UserAccount>,
-): Promise<{ ok: boolean; messageKey: string }> {
-  const sb = getBrowserSupabase();
-  const {
-    data: { session },
-  } = await sb.auth.getSession();
-  if (!session?.user) return { ok: false, messageKey: "authMessages.noAuthenticatedUser" };
-
-  if (partial.phoneNumber !== undefined) {
-    const ok = await checkPhoneAvailable(sb, partial.phoneNumber, session.user.id);
-    if (!ok) return { ok: false, messageKey: "authMessages.phoneExists" };
-  }
-
-  if (partial.email !== undefined) {
-    const raw = partial.email.trim();
-    if (raw) {
-      const norm = raw.toLowerCase();
-      const { data: conflict } = await sb
-        .from("users")
-        .select("id")
-        .ilike("contact_email", norm)
-        .neq("id", session.user.id)
-        .maybeSingle();
-      if (conflict) return { ok: false, messageKey: "authMessages.emailExists" };
-    }
-  }
-
-  return updateAuthenticatedProfile(sb, session.user.id, partial);
 }
 
 export async function getUserByUsername(username: string): Promise<UserAccount | null> {
@@ -74,19 +35,6 @@ export async function listPublicMakeupArtists(): Promise<UserAccount[]> {
 
 export async function listPublicModels(): Promise<UserAccount[]> {
   return queryPublicModels(getBrowserSupabase());
-}
-
-export async function signUp(payload: SignupPayload): Promise<{ ok: boolean; messageKey: string }> {
-  return signUpWithMetadata(getBrowserSupabase(), payload);
-}
-
-export async function login(email: string, password: string): Promise<{ ok: boolean; messageKey: string }> {
-  return signInWithEmail(getBrowserSupabase(), email, password);
-}
-
-export async function logout(): Promise<void> {
-  const sb = getBrowserSupabase();
-  await sb.auth.signOut();
 }
 
 export type AdminUserPatch = Partial<

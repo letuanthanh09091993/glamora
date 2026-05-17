@@ -450,27 +450,12 @@ export async function signInWithEmail(
     return { ok: false, messageKey: "authMessages.invalidEmail" };
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email: norm,
     password,
   });
 
-  console.log("[LOGIN RESULT]", {
-    userId: data.user?.id ?? null,
-    session: data.session
-      ? {
-          expires_at: data.session.expires_at,
-          hasAccessToken: Boolean(data.session.access_token),
-          hasRefreshToken: Boolean(data.session.refresh_token),
-        }
-      : null,
-    error: error?.message ?? null,
-  });
-
   if (error) return { ok: false, messageKey: mapSupabaseAuthError(error) };
-
-  console.log("[LOGIN RESULT] access token exists:", Boolean(data.session?.access_token));
-
   return { ok: true, messageKey: "authMessages.loginSuccess" };
 }
 

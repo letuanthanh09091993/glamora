@@ -13,6 +13,7 @@ export type AuthDebugServerSnapshot = {
   };
   dbRole: {
     role: string | null;
+    account_status: string | null;
     queryError: string | null;
   };
   env: {
@@ -90,6 +91,9 @@ export function AuthDebugClient({ server }: { server: AuthDebugServerSnapshot })
             </li>
             <li>
               DB role: <strong>{server.dbRole.role ?? "—"}</strong>
+              {server.dbRole.account_status
+                ? ` (status: ${server.dbRole.account_status})`
+                : ""}
               {server.dbRole.queryError ? ` (error: ${server.dbRole.queryError})` : ""}
             </li>
             <li>

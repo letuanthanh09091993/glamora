@@ -2,20 +2,17 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
 import { AppRoutes } from "@/lib/app-routes";
-import { waitForBrowserSession } from "@/lib/auth/wait-for-browser-session";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AppButton } from "@/components/ui/app-button";
 import { AppInput } from "@/components/ui/app-input";
 import { Notice } from "@/components/ui/notice";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useLanguage } from "@/components/providers/language-provider";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { mapSupabaseAuthError } from "@/lib/supabase/auth-errors";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { login } = useAuth();
+  const { signIn } = useAuth();
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,34 +26,29 @@ export default function LoginPage() {
     setLoading(true);
     setNotice(null);
 
-    const result = await login(email, password);
-    if (!result.ok) {
-      setLoading(false);
-      setNotice({ type: "error", message: t(result.messageKey) });
-      return;
-    }
+    const { data, error } = await signIn(email, password);
 
-    const supabase = getSupabaseBrowserClient();
-    const session = await waitForBrowserSession(supabase);
-    const {
-      data: { session: afterWait },
-    } = await supabase.auth.getSession();
-
-    console.log("[LOGIN RESULT] after waitForBrowserSession", {
-      hasSession: Boolean(session ?? afterWait),
-      userId: (session ?? afterWait)?.user?.id ?? null,
-      hasAccessToken: Boolean((session ?? afterWait)?.access_token),
+    console.log("[LOGIN RESULT]", {
+      userId: data.user?.id ?? null,
+      session: data.session
+        ? {
+            expires_at: data.session.expires_at,
+            hasAccessToken: Boolean(data.session.access_token),
+          }
+        : null,
+      error: error?.message ?? null,
     });
 
-    if (!session?.user && !afterWait?.user) {
+    if (error) {
       setLoading(false);
-      setNotice({ type: "error", message: t("authMessages.networkError") });
+      setNotice({ type: "error", message: t(mapSupabaseAuthError(error)) });
       return;
     }
 
-    setLoading(false);
-    setNotice({ type: "success", message: t(result.messageKey) });
-    router.push(AppRoutes.dashboard);
+    console.log("[LOGIN RESULT] access token exists:", Boolean(data.session?.access_token));
+    console.log("[LOGIN HARD REDIRECT]");
+
+    window.location.href = AppRoutes.dashboard;
   }
 
   return (

@@ -4,15 +4,16 @@ import {
   type AuthDebugServerSnapshot,
 } from "@/components/debug/auth-debug-client";
 import { createRouteSupabase } from "@/lib/supabase/create-route-supabase";
-import { logServerCookieCheck } from "@/lib/supabase/server-cookie-debug";
+import { hasSupabaseAuthCookie } from "@/lib/supabase/server-cookie-debug";
 
 export const dynamic = "force-dynamic";
 
 export default async function DebugAuthPage() {
   const cookieStore = await cookies();
-  const { cookieNames, authTokenCookiePresent } = logServerCookieCheck(cookieStore, "debug-auth/page");
+  const cookieNames = cookieStore.getAll().map((c) => c.name);
+  const authTokenCookiePresent = hasSupabaseAuthCookie(cookieNames);
 
-  const supabase = await createRouteSupabase("debug-auth/page");
+  const supabase = await createRouteSupabase();
 
   const {
     data: { user },
@@ -20,15 +21,8 @@ export default async function DebugAuthPage() {
   } = await supabase.auth.getUser();
 
   const { data: profile, error: profileError } = user
-    ? await supabase.from("users").select("role").eq("id", user.id).single()
+    ? await supabase.from("users").select("role, account_status").eq("id", user.id).single()
     : { data: null, error: null };
-
-  console.log("[debug-auth] server snapshot", {
-    userId: user?.id ?? null,
-    email: user?.email ?? null,
-    role: profile?.role ?? null,
-    authTokenCookiePresent,
-  });
 
   const server: AuthDebugServerSnapshot = {
     cookieNames,
@@ -40,6 +34,7 @@ export default async function DebugAuthPage() {
     },
     dbRole: {
       role: profile?.role ?? null,
+      account_status: profile?.account_status ?? null,
       queryError: profileError?.message ?? null,
     },
     env: {

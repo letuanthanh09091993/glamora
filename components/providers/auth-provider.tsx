@@ -7,216 +7,106 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
-import type { Session } from "@supabase/supabase-js";
-import { UserAccount } from "@/lib/auth-types";
+import type { Session, User } from "@supabase/supabase-js";
+import type { SignupPayload, UserAccount } from "@/lib/auth-types";
 import {
-  login as loginWithSupabase,
-  logout as logoutSupabase,
-  signUp as signUpSupabase,
-  updateCurrentUser,
-} from "@/lib/auth-storage";
-import { syncProfileFromSession } from "@/lib/auth/sync-profile-from-session";
-import { waitForBrowserSession } from "@/lib/auth/wait-for-browser-session";
+  signInWithPassword,
+  signOut as authSignOut,
+  signUpAccount,
+} from "@/lib/auth/auth-client";
+import { updateCurrentUser } from "@/lib/profile-storage";
+import { fetchUserAccountById } from "@/lib/supabase/users-repository";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-type LoginResult = { ok: boolean; messageKey: string };
-
 type AuthContextValue = {
-  user: UserAccount | null;
-  isReady: boolean;
-  hasAuthSession: boolean;
-  isEmailVerified: boolean;
-  login: (email: string, password: string) => Promise<LoginResult>;
-  signUp: (payload: {
-    email: string;
-    username: string;
-    password: string;
-    phoneNumber: string;
-    role: UserAccount["role"];
-  }) => Promise<{ ok: boolean; messageKey: string }>;
-  logout: () => Promise<void>;
+  session: Session | null;
+  authUser: User | null;
+  profile: UserAccount | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => ReturnType<typeof signInWithPassword>;
+  signUp: (payload: SignupPayload) => ReturnType<typeof signUpAccount>;
+  signOut: () => Promise<void>;
+  updateProfile: (partial: Partial<UserAccount>) => ReturnType<typeof updateCurrentUser>;
   refreshUser: () => Promise<void>;
-  updateProfile: (partial: Partial<UserAccount>) => Promise<{ ok: boolean; messageKey: string }>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserAccount | null>(null);
-  const [isReady, setIsReady] = useState(false);
-  const [hasAuthSession, setHasAuthSession] = useState(false);
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const syncInFlight = useRef(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserAccount | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const applyProfileSync = useCallback((synced: Awaited<ReturnType<typeof syncProfileFromSession>>) => {
-    setHasAuthSession(synced.hasAuthSession);
-    setIsEmailVerified(synced.isEmailVerified);
-    setUser(synced.user);
-  }, []);
+  const applySession = useCallback(async (next: Session | null) => {
+    setSession(next);
+    setAuthUser(next?.user ?? null);
 
-  const refreshUser = useCallback(
-    async (knownSession?: Session | null) => {
+    if (next?.user) {
       const sb = getSupabaseBrowserClient();
-      await sb.auth.initialize();
-
-      const session =
-        knownSession !== undefined
-          ? knownSession
-          : (
-              await sb.auth.getSession()
-            ).data.session;
-
-      if (!session?.user) {
-        setHasAuthSession(false);
-        setUser(null);
-        setIsEmailVerified(false);
-        return;
-      }
-
-      setHasAuthSession(true);
-      setIsEmailVerified(Boolean(session.user.email_confirmed_at));
-
-      try {
-        const synced = await syncProfileFromSession(sb, session);
-        applyProfileSync(synced);
-      } catch (err) {
-        console.log("[AUTH PROVIDER] profile sync error (session kept)", err);
-        setHasAuthSession(true);
-        setIsEmailVerified(Boolean(session.user.email_confirmed_at));
-      }
-    },
-    [applyProfileSync],
-  );
-
-  const logAuthProviderSession = useCallback((label: string, session: Session | null) => {
-    console.log("[AUTH PROVIDER SESSION]", label, {
-      sessionExists: Boolean(session),
-      userId: session?.user?.id ?? null,
-      email: session?.user?.email ?? null,
-      expiresAt: session?.expires_at ?? null,
-      hasAccessToken: Boolean(session?.access_token),
-    });
+      const acc = await fetchUserAccountById(sb, next.user.id);
+      setProfile(acc);
+    } else {
+      setProfile(null);
+    }
   }, []);
-
-  const handleAuthStateChange = useCallback(
-    async (event: string, session: Session | null) => {
-      logAuthProviderSession(`onAuthStateChange:${event}`, session);
-
-      if (event === "SIGNED_OUT") {
-        setHasAuthSession(false);
-        setUser(null);
-        setIsEmailVerified(false);
-        return;
-      }
-
-      if (session?.user) {
-        setHasAuthSession(true);
-        setIsEmailVerified(Boolean(session.user.email_confirmed_at));
-      }
-
-      if (syncInFlight.current) return;
-      syncInFlight.current = true;
-      try {
-        await refreshUser(session);
-      } finally {
-        syncInFlight.current = false;
-      }
-    },
-    [logAuthProviderSession, refreshUser],
-  );
 
   useEffect(() => {
-    let mounted = true;
-    let subscription: { unsubscribe: () => void } | undefined;
+    const sb = getSupabaseBrowserClient();
 
-    void (async () => {
-      setIsReady(false);
-      try {
-        const sb = getSupabaseBrowserClient();
-        const {
-          data: { subscription: sub },
-        } = sb.auth.onAuthStateChange((event, session) => {
-          void handleAuthStateChange(event, session);
-        });
-        subscription = sub;
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange((event, nextSession) => {
+      console.log("[AUTH PROVIDER SESSION]", {
+        event,
+        sessionExists: Boolean(nextSession),
+        userId: nextSession?.user?.id ?? null,
+        email: nextSession?.user?.email ?? null,
+      });
+      void applySession(nextSession);
+      setLoading(false);
+    });
 
-        if (!mounted) return;
+    void sb.auth.getSession().then(({ data: { session: initial } }) => {
+      console.log("[AUTH PROVIDER SESSION]", {
+        event: "INITIAL",
+        sessionExists: Boolean(initial),
+        userId: initial?.user?.id ?? null,
+        email: initial?.user?.email ?? null,
+      });
+      void applySession(initial);
+      setLoading(false);
+    });
 
-        const {
-          data: { session: initialSession },
-        } = await sb.auth.getSession();
-        logAuthProviderSession("initial load", initialSession);
-
-        await refreshUser();
-      } catch (err) {
-        console.log("[AUTH PROVIDER] bootstrap error", err);
-      } finally {
-        if (mounted) setIsReady(true);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-      subscription?.unsubscribe();
-    };
-  }, [handleAuthStateChange, logAuthProviderSession, refreshUser]);
+    return () => subscription.unsubscribe();
+  }, [applySession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user,
-      isReady,
-      hasAuthSession,
-      isEmailVerified,
-      async login(email, password) {
-        const result = await loginWithSupabase(email, password);
-        if (!result.ok) return result;
-
+      session,
+      authUser,
+      profile,
+      loading,
+      signIn: signInWithPassword,
+      signUp: signUpAccount,
+      async signOut() {
+        await authSignOut();
+        setSession(null);
+        setAuthUser(null);
+        setProfile(null);
+      },
+      updateProfile: updateCurrentUser,
+      async refreshUser() {
         const sb = getSupabaseBrowserClient();
-        const session = await waitForBrowserSession(sb);
-        if (!session?.user) {
-          console.log("[AUTH PROVIDER] login ok but session not persisted");
-          return { ok: false, messageKey: "authMessages.networkError" };
-        }
-
-        await refreshUser(session);
-        const synced = await syncProfileFromSession(sb, session);
-        applyProfileSync(synced);
-
-        return {
-          ok: true,
-          messageKey: result.messageKey,
-        };
-      },
-      async signUp(payload) {
-        const result = await signUpSupabase(payload);
-        if (result.ok) {
-          const sb = getSupabaseBrowserClient();
-          const session = await waitForBrowserSession(sb, { timeoutMs: 5000 });
-          if (session) await refreshUser(session);
-        }
-        return result;
-      },
-      async logout() {
-        try {
-          await logoutSupabase();
-        } catch {
-          /* ignore */
-        }
-        setHasAuthSession(false);
-        setUser(null);
-        setIsEmailVerified(false);
-      },
-      refreshUser,
-      async updateProfile(partial) {
-        const result = await updateCurrentUser(partial);
-        await refreshUser();
-        return result;
+        const {
+          data: { session: current },
+        } = await sb.auth.getSession();
+        await applySession(current);
       },
     }),
-    [applyProfileSync, hasAuthSession, isEmailVerified, isReady, refreshUser, user],
+    [applySession, authUser, loading, profile, session],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -227,5 +117,23 @@ export function useAuth() {
   if (!ctx) {
     throw new Error("useAuth must be used within AuthProvider");
   }
-  return ctx;
+
+  return {
+    session: ctx.session,
+    authUser: ctx.authUser,
+    profile: ctx.profile,
+    loading: ctx.loading,
+    signIn: ctx.signIn,
+    signUp: ctx.signUp,
+    signOut: ctx.signOut,
+    updateProfile: ctx.updateProfile,
+    refreshUser: ctx.refreshUser,
+    /** @deprecated — use `profile` */
+    user: ctx.profile,
+    isReady: !ctx.loading,
+    hasAuthSession: Boolean(ctx.session),
+    isEmailVerified: Boolean(ctx.authUser?.email_confirmed_at),
+    login: ctx.signIn,
+    logout: ctx.signOut,
+  };
 }

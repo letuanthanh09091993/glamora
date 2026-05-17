@@ -21,14 +21,6 @@ export default function VerifyEmailPage() {
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  /* Debug mode: client redirect disabled — use /dashboard for role routing */
-  // useEffect(() => {
-  //   if (!isReady) return;
-  //   if (user && isEmailVerified) {
-  //     router.replace(ROLE_META[user.role].dashboardPath);
-  //   }
-  // }, [isReady, user, isEmailVerified, router]);
-
   useEffect(() => {
     if (!isReady || !user) return;
     void getBrowserSupabase()
