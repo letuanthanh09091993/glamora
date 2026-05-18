@@ -100,7 +100,12 @@ function asPortfolioItems(v: unknown): PortfolioItem[] | undefined {
 
 function portfolioRowsToItems(rows: PortfolioDbRow[]): PortfolioItem[] {
   return [...rows]
-    .sort((a, b) => a.sort_order - b.sort_order)
+    .sort((a, b) => {
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      const ta = a.created_at ? Date.parse(a.created_at) : 0;
+      const tb = b.created_at ? Date.parse(b.created_at) : 0;
+      return tb - ta;
+    })
     .map((r) => ({
       id: r.id,
       url: r.url,
@@ -284,6 +289,8 @@ export async function fetchUserAccountById(
   }
 
   const full = mapUserDbRowToAccount(data as UserDbRow);
+  const count = full.portfolioItems?.length ?? 0;
+  console.log("[PORTFOLIO] fetched count", count);
   return {
     ...full,
     role: principal.role,

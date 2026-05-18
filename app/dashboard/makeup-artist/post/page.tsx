@@ -15,7 +15,12 @@ import { UploadZone } from "@/components/upload/upload-zone";
 import { glamora } from "@/lib/ui/design-tokens";
 import type { PortfolioItem } from "@/lib/auth-types";
 import { AppRoutes } from "@/lib/app-routes";
-import { getStablePortfolioItems, makeStableItemId, uniqueNonEmptyStrings } from "@/lib/portfolio-media";
+import {
+  getStablePortfolioItems,
+  makeStableItemId,
+  mergePortfolioItemsUnique,
+  uniqueNonEmptyStrings,
+} from "@/lib/portfolio-media";
 import { MAX_PORTFOLIO_VIDEO_BYTES, portfolioItemsToUrlLists } from "@/lib/portfolio/portfolio-media-upload";
 import {
   mapPortfolioApiError,
@@ -61,6 +66,7 @@ function MakeupArtistPostPageInner() {
   const freshEntry = searchParams.get("fresh") === "1";
   const fileRef = useRef<HTMLInputElement>(null);
   const skipHydrateAfterFreshRef = useRef(false);
+  const draftDirtyRef = useRef(false);
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [pickedFiles, setPickedFiles] = useState<File[]>([]);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -83,6 +89,7 @@ function MakeupArtistPostPageInner() {
     }
     if (freshEntry) {
       skipHydrateAfterFreshRef.current = true;
+      draftDirtyRef.current = false;
       setItems([]);
       setPickedFiles([]);
       setNotice(null);
@@ -94,8 +101,12 @@ function MakeupArtistPostPageInner() {
       skipHydrateAfterFreshRef.current = false;
       return;
     }
-    setItems(getStablePortfolioItems(user));
-  }, [user?.username, freshEntry, router]);
+    if (draftDirtyRef.current) return;
+
+    const stable = getStablePortfolioItems(user);
+    console.log("[PORTFOLIO] fetched count", stable.length);
+    setItems(stable);
+  }, [user, user?.username, freshEntry, router]);
 
   const imageItems = useMemo(() => items.filter((i) => i.kind === "image"), [items]);
   const videoItems = useMemo(() => items.filter((i) => i.kind === "video"), [items]);
@@ -120,10 +131,12 @@ function MakeupArtistPostPageInner() {
   const albumOptions = useMemo(() => uniqueNonEmptyStrings(items.map((i) => i.album)), [items]);
 
   function patchItem(id: string, patch: Partial<Pick<PortfolioItem, "album" | "styleTag" | "packageName">>) {
+    draftDirtyRef.current = true;
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   }
 
   function removeItem(id: string) {
+    draftDirtyRef.current = true;
     setItems((prev) => prev.filter((it) => it.id !== id));
   }
 
@@ -191,10 +204,7 @@ function MakeupArtistPostPageInner() {
     setUploading(true);
     setUploadProgress(0);
 
-    const imgs = items.filter((i) => i.kind === "image");
-    const vids = items.filter((i) => i.kind === "video");
-    let nextImgs = [...imgs];
-    let nextVids = [...vids];
+    const newEntries: PortfolioItem[] = [];
     let added = 0;
     const files = [...pickedFiles];
 
@@ -202,15 +212,6 @@ function MakeupArtistPostPageInner() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i]!;
         setUploadProgress(Math.round(((i + 0.5) / files.length) * 100));
-
-        const total = nextImgs.length + nextVids.length;
-        if (total >= MAX_PORTFOLIO_ITEMS) {
-          setNotice({
-            type: "error",
-            message: t("dashboard.artistPostPage.maxImages").replace("{max}", String(MAX_PORTFOLIO_ITEMS)),
-          });
-          break;
-        }
 
         const isImage = file.type.startsWith("image/");
         const isVideo = file.type.startsWith("video/");
@@ -229,14 +230,11 @@ function MakeupArtistPostPageInner() {
             ? await uploadPortfolioImageViaApi(userId, file)
             : await uploadPortfolioVideoViaApi(userId, file);
           const kind = isImage ? "image" : "video";
-          const entry: PortfolioItem = {
+          newEntries.push({
             id: makeStableItemId(url, kind),
             url,
             kind,
-          };
-
-          if (isImage) nextImgs.push(entry);
-          else nextVids.push(entry);
+          });
           added += 1;
         } catch (err) {
           console.error("[portfolio upload]", err);
@@ -245,7 +243,21 @@ function MakeupArtistPostPageInner() {
         }
       }
 
-      setItems([...nextImgs, ...nextVids]);
+      if (newEntries.length > 0) {
+        draftDirtyRef.current = true;
+        setItems((prev) => {
+          const merged = mergePortfolioItemsUnique(newEntries, prev);
+          if (merged.length > MAX_PORTFOLIO_ITEMS) {
+            setNotice({
+              type: "error",
+              message: t("dashboard.artistPostPage.maxImages").replace("{max}", String(MAX_PORTFOLIO_ITEMS)),
+            });
+            return prev;
+          }
+          console.log("[PORTFOLIO] list count after upload", merged.length);
+          return merged;
+        });
+      }
       setPickedFiles([]);
       if (fileRef.current) fileRef.current.value = "";
 
@@ -291,10 +303,12 @@ function MakeupArtistPostPageInner() {
       });
 
       if (result.ok) {
+        draftDirtyRef.current = false;
+        setItems(prepared);
+        console.log("[PORTFOLIO] fetched count", prepared.length);
         await refreshUser();
         setToast({ type: "success", message: t("dashboard.artistPostPage.saveSuccess") });
         setNotice(null);
-        setItems([]);
         setPickedFiles([]);
         if (fileRef.current) fileRef.current.value = "";
       } else {

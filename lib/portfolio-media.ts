@@ -39,7 +39,33 @@ export function syncPortfolioItemsWithUrls(
 }
 
 export function getStablePortfolioItems(user: UserAccount): PortfolioItem[] {
+  if (user.portfolioItems && user.portfolioItems.length > 0) {
+    return [...user.portfolioItems];
+  }
   return syncPortfolioItemsWithUrls(user, user.portfolioImageUrls ?? [], user.portfolioVideoUrls ?? []);
+}
+
+/** Merge lists; first list wins order; dedupe by id and url. */
+export function mergePortfolioItemsUnique(
+  primary: PortfolioItem[],
+  ...rest: PortfolioItem[][]
+): PortfolioItem[] {
+  const seenId = new Set<string>();
+  const seenUrl = new Set<string>();
+  const out: PortfolioItem[] = [];
+
+  const tryAdd = (it: PortfolioItem) => {
+    if (seenId.has(it.id) || seenUrl.has(it.url)) return;
+    seenId.add(it.id);
+    seenUrl.add(it.url);
+    out.push(it);
+  };
+
+  for (const it of primary) tryAdd(it);
+  for (const list of rest) {
+    for (const it of list) tryAdd(it);
+  }
+  return out;
 }
 
 const FILTER_ALL = "all";
