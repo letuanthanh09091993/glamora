@@ -5,6 +5,7 @@ import {
   PORTFOLIO_BUCKET_ID,
 } from "@/lib/portfolio/ensure-portfolio-storage";
 import { MAX_PORTFOLIO_VIDEO_BYTES } from "@/lib/portfolio/portfolio-media-upload";
+import { appendArtistPortfolioMediaRow } from "@/lib/supabase/users-repository";
 import { createRouteSupabase } from "@/lib/supabase/create-route-supabase";
 
 export const runtime = "nodejs";
@@ -20,7 +21,10 @@ function extForVideo(mime: string): string {
   return map[mime] ?? "mp4";
 }
 
-/** Authenticated portfolio upload using the signed-in user's Supabase session. */
+/**
+ * 1) Insert file into storage (new object path each time, upsert: false).
+ * 2) Append one row to public.artist_portfolios (INSERT, not upsert on user_id).
+ */
 export async function POST(request: Request) {
   try {
     const supabase = await createRouteSupabase();
@@ -93,8 +97,26 @@ export async function POST(request: Request) {
     }
 
     const { data: urlData } = supabase.storage.from(PORTFOLIO_BUCKET_ID).getPublicUrl(path);
+    const publicUrl = urlData.publicUrl;
 
-    return NextResponse.json({ ok: true, url: urlData.publicUrl, path });
+    const appended = await appendArtistPortfolioMediaRow(supabase, user.id, {
+      url: publicUrl,
+      kind: isImage ? "image" : "video",
+    });
+
+    if (!appended.ok) {
+      return NextResponse.json(
+        { ok: false, error: "Failed to save portfolio row", code: "DB_INSERT_FAILED" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      url: publicUrl,
+      path,
+      portfolioItem: appended.item,
+    });
   } catch (e) {
     console.error("[PORTFOLIO UPLOAD ERROR]", { stage: "api.portfolio.upload", error: e });
     const msg = e instanceof Error ? e.message : "Internal error";

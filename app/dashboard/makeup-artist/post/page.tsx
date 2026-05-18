@@ -17,7 +17,6 @@ import type { PortfolioItem } from "@/lib/auth-types";
 import { AppRoutes } from "@/lib/app-routes";
 import {
   getStablePortfolioItems,
-  makeStableItemId,
   mergePortfolioItemsUnique,
   uniqueNonEmptyStrings,
 } from "@/lib/portfolio-media";
@@ -78,6 +77,11 @@ function MakeupArtistPostPageInner() {
     message: string;
   } | null>(null);
 
+  const serverPortfolioKey = useMemo(
+    () => (user?.portfolioItems ?? []).map((i) => i.id).join("|"),
+    [user?.portfolioItems],
+  );
+
   /**
    * Đồng bộ draft từ hồ sơ khi đổi tài khoản (`username`), không hydrate lại sau khi chỉ portfolio đổi (sau "Lưu portfolio").
    * `?fresh=1`: vào từ nút "Đăng bài" — form trống; sau `replace` URL bỏ query, bỏ qua một lần hydrate để không fill lại từ user.
@@ -105,8 +109,9 @@ function MakeupArtistPostPageInner() {
 
     const stable = getStablePortfolioItems(user);
     console.log("[PORTFOLIO] fetched count", stable.length);
+    console.log("[PORTFOLIO] fetched ids", stable.map((i) => i.id));
     setItems(stable);
-  }, [user, user?.username, freshEntry, router]);
+  }, [user?.id, user?.username, serverPortfolioKey, freshEntry, router]);
 
   const imageItems = useMemo(() => items.filter((i) => i.kind === "image"), [items]);
   const videoItems = useMemo(() => items.filter((i) => i.kind === "video"), [items]);
@@ -226,15 +231,10 @@ function MakeupArtistPostPageInner() {
         }
 
         try {
-          const url = isImage
+          const entry = isImage
             ? await uploadPortfolioImageViaApi(userId, file)
             : await uploadPortfolioVideoViaApi(userId, file);
-          const kind = isImage ? "image" : "video";
-          newEntries.push({
-            id: makeStableItemId(url, kind),
-            url,
-            kind,
-          });
+          newEntries.push(entry);
           added += 1;
         } catch (err) {
           console.error("[portfolio upload]", err);

@@ -5,7 +5,7 @@ import { makeStableItemId } from "@/lib/portfolio-media";
 import { processPortfolioImageFile } from "@/lib/portfolio/process-portfolio-image";
 
 type UploadApiResponse =
-  | { ok: true; url: string }
+  | { ok: true; url: string; portfolioItem?: PortfolioItem }
   | { ok: false; error?: string; code?: string };
 
 let setupPromise: Promise<boolean> | null = null;
@@ -26,7 +26,11 @@ export async function ensurePortfolioStorageReady(): Promise<boolean> {
   return setupPromise;
 }
 
-async function postFile(file: File | Blob, kind: "image" | "video", filename: string): Promise<string> {
+async function postFile(
+  file: File | Blob,
+  kind: "image" | "video",
+  filename: string,
+): Promise<PortfolioItem> {
   const form = new FormData();
   form.append("file", file, filename);
   form.append("kind", kind);
@@ -45,17 +49,27 @@ async function postFile(file: File | Blob, kind: "image" | "video", filename: st
     }
     throw err;
   }
-  return data.url;
+
+  if (data.portfolioItem) {
+    console.log("[PORTFOLIO] uploaded row id", data.portfolioItem.id);
+    return data.portfolioItem;
+  }
+
+  return {
+    id: makeStableItemId(data.url, kind),
+    url: data.url,
+    kind,
+  };
 }
 
-export async function uploadPortfolioImageViaApi(userId: string, file: File): Promise<string> {
+export async function uploadPortfolioImageViaApi(userId: string, file: File): Promise<PortfolioItem> {
   void userId;
   await ensurePortfolioStorageReady();
   const blob = await processPortfolioImageFile(file);
   return postFile(blob, "image", "portfolio.jpg");
 }
 
-export async function uploadPortfolioVideoViaApi(userId: string, file: File): Promise<string> {
+export async function uploadPortfolioVideoViaApi(userId: string, file: File): Promise<PortfolioItem> {
   void userId;
   await ensurePortfolioStorageReady();
   return postFile(file, "video", file.name || "portfolio.mp4");
@@ -86,15 +100,14 @@ export async function preparePortfolioItemsForSaveViaApi(
     }
 
     const blob = await fetch(item.url).then((r) => r.blob());
-    const url = await postFile(
+    const persisted = await postFile(
       blob,
       item.kind,
       item.kind === "image" ? "legacy.jpg" : "legacy.mp4",
     );
     out.push({
       ...item,
-      id: makeStableItemId(url, item.kind),
-      url,
+      ...persisted,
     });
   }
 

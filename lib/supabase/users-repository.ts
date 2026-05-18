@@ -124,6 +124,9 @@ export function mapUserDbRowToAccount(row: UserDbRow): UserAccount {
       : undefined;
   const fromJson = asPortfolioItems(p?.portfolio_items);
   const portfolioItems = fromTable?.length ? fromTable : fromJson;
+  if (portfolioItems?.length) {
+    console.log("[PORTFOLIO] fetched ids", portfolioItems.map((i) => i.id));
+  }
 
   const castingRaw = p?.casting_requests;
   const castingRequests = Array.isArray(castingRaw)
@@ -290,7 +293,9 @@ export async function fetchUserAccountById(
 
   const full = mapUserDbRowToAccount(data as UserDbRow);
   const count = full.portfolioItems?.length ?? 0;
+  const ids = full.portfolioItems?.map((i) => i.id) ?? [];
   console.log("[PORTFOLIO] fetched count", count);
+  console.log("[PORTFOLIO] fetched ids", ids);
   return {
     ...full,
     role: principal.role,
@@ -577,6 +582,60 @@ export async function signInWithEmail(
   return { ok: true, messageKey: "authMessages.loginSuccess" };
 }
 
+/** Insert one portfolio media row (append). Does not delete existing rows. */
+export async function appendArtistPortfolioMediaRow(
+  supabase: SupabaseClient,
+  userId: string,
+  payload: { url: string; kind: PortfolioItem["kind"] },
+): Promise<{ ok: true; item: PortfolioItem } | { ok: false; messageKey: string }> {
+  const { data: maxRow } = await supabase
+    .from("artist_portfolios")
+    .select("sort_order")
+    .eq("user_id", userId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const sortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+  const { data, error } = await supabase
+    .from("artist_portfolios")
+    .insert({
+      user_id: userId,
+      url: payload.url,
+      kind: payload.kind,
+      sort_order: sortOrder,
+    })
+    .select("id, url, kind, album, style_tag, package_name, sort_order, created_at")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      const { data: existing } = await supabase
+        .from("artist_portfolios")
+        .select("id, url, kind, album, style_tag, package_name, sort_order, created_at")
+        .eq("user_id", userId)
+        .eq("url", payload.url)
+        .maybeSingle();
+      if (existing) {
+        const item = portfolioRowsToItems([existing as PortfolioDbRow])[0]!;
+        console.log("[PORTFOLIO] uploaded row id (existing)", item.id);
+        return { ok: true, item };
+      }
+    }
+    console.error("[PORTFOLIO UPLOAD ERROR]", {
+      stage: "artist_portfolios.append",
+      userId,
+      error,
+    });
+    return { ok: false, messageKey: mapPortfolioSyncErrorCode(error) };
+  }
+
+  const item = portfolioRowsToItems([data as PortfolioDbRow])[0]!;
+  console.log("[PORTFOLIO] uploaded row id", item.id);
+  return { ok: true, item };
+}
+
 function mapPortfolioSyncErrorCode(error: { code?: string; message?: string }): string {
   if (error.code === "23505") return "authMessages.portfolioDuplicate";
   if (error.code === "42501") return "authMessages.portfolioRlsDenied";
@@ -619,7 +678,10 @@ export async function syncArtistPortfolioTable(
     sort_order: index,
   }));
 
-  const { error: insertError } = await supabase.from("artist_portfolios").insert(rows);
+  const { data: inserted, error: insertError } = await supabase
+    .from("artist_portfolios")
+    .insert(rows)
+    .select("id");
   if (insertError) {
     console.error("[PORTFOLIO UPLOAD ERROR]", {
       stage: "artist_portfolios.insert",
@@ -629,6 +691,13 @@ export async function syncArtistPortfolioTable(
     });
     return { ok: false, messageKey: mapPortfolioSyncErrorCode(insertError) };
   }
+
+  console.log(
+    "[PORTFOLIO] synced insert ids",
+    (inserted ?? []).map((r) => r.id),
+    "total",
+    rows.length,
+  );
 
   return { ok: true, messageKey: "authMessages.profileUpdated" };
 }
