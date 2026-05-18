@@ -9,22 +9,20 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { AppButton } from "@/components/ui/app-button";
 import { Notice } from "@/components/ui/notice";
 import { UploadFeedbackToast } from "@/components/upload/upload-feedback-toast";
-import type { PortfolioItem } from "@/lib/auth-types";
 import { AppRoutes } from "@/lib/app-routes";
 import {
   FILTER_ALL,
   FILTER_UNCAT,
-  getStablePortfolioItems,
   itemMatchesFilter,
   uniqueNonEmptyStrings,
 } from "@/lib/portfolio-media";
-import { loadArtistPortfolioItemsForUser } from "@/lib/portfolio/fetch-artist-portfolio";
+import { useArtistPortfolioItems } from "@/lib/portfolio/use-artist-portfolio-items";
 import { normalizeServicePackages } from "@/lib/service-packages";
 
 export default function ArtistPortfolioPreviewPage() {
   const { t } = useLanguage();
   const { user, updateProfile } = useAuth();
-  const [items, setItems] = useState<PortfolioItem[]>([]);
+  const { items, setItems, reloadFromDb } = useArtistPortfolioItems({ userId: user?.id });
   const [albumFilter, setAlbumFilter] = useState(FILTER_ALL);
   const [styleFilter, setStyleFilter] = useState(FILTER_ALL);
   const [packageFilter, setPackageFilter] = useState(FILTER_ALL);
@@ -33,25 +31,6 @@ export default function ArtistPortfolioPreviewPage() {
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-    void loadArtistPortfolioItemsForUser(user.id).then((rows) => {
-      if (cancelled) return;
-      const next = rows.length > 0 ? rows : getStablePortfolioItems(user);
-      console.log("[PORTFOLIO DEBUG] state length", next.length);
-      setItems(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user, user?.id]);
-
-  useEffect(() => {
-    console.log("[PORTFOLIO DEBUG] rendering ids", items.map((x) => x.id));
-    console.log("[PORTFOLIO DEBUG] state length", items.length);
-  }, [items]);
 
   useEffect(() => {
     setSelectedIds((prev) => prev.filter((id) => items.some((i) => i.id === id)));
@@ -132,7 +111,7 @@ export default function ArtistPortfolioPreviewPage() {
         portfolioVideoUrls: videos,
       });
       if (result.ok) {
-        setItems(nextItems);
+        await reloadFromDb();
         exitSelectMode();
         setToast({
           type: "success",
@@ -249,6 +228,10 @@ export default function ArtistPortfolioPreviewPage() {
               <Notice type={notice.type} message={notice.message} />
             </div>
           ) : null}
+
+          <p className="mt-4 text-xs text-gray-400" aria-live="polite">
+            Portfolio items: {items.length}
+          </p>
 
           <div className="mt-8">
             {items.length === 0 ? (

@@ -15,11 +15,8 @@ import { UploadZone } from "@/components/upload/upload-zone";
 import { glamora } from "@/lib/ui/design-tokens";
 import type { PortfolioItem } from "@/lib/auth-types";
 import { AppRoutes } from "@/lib/app-routes";
-import {
-  getStablePortfolioItems,
-  mergePortfolioItemsUnique,
-  uniqueNonEmptyStrings,
-} from "@/lib/portfolio-media";
+import { mergePortfolioItemsUnique, uniqueNonEmptyStrings } from "@/lib/portfolio-media";
+import { useArtistPortfolioItems } from "@/lib/portfolio/use-artist-portfolio-items";
 import { MAX_PORTFOLIO_VIDEO_BYTES, portfolioItemsToUrlLists } from "@/lib/portfolio/portfolio-media-upload";
 import {
   mapPortfolioApiError,
@@ -27,7 +24,6 @@ import {
   uploadPortfolioImageViaApi,
   uploadPortfolioVideoViaApi,
 } from "@/lib/portfolio/portfolio-upload-client";
-import { loadArtistPortfolioItemsForUser } from "@/lib/portfolio/fetch-artist-portfolio";
 import { normalizeServicePackages } from "@/lib/service-packages";
 
 /** Tổng số ảnh + video trong portfolio. */
@@ -65,9 +61,12 @@ function MakeupArtistPostPageInner() {
   const searchParams = useSearchParams();
   const freshEntry = searchParams.get("fresh") === "1";
   const fileRef = useRef<HTMLInputElement>(null);
-  const skipHydrateAfterFreshRef = useRef(false);
   const draftDirtyRef = useRef(false);
-  const [items, setItems] = useState<PortfolioItem[]>([]);
+  const userId = user?.id ?? authUser?.id;
+  const { items, setItems, reloadFromDb, markAccountLoadedWithoutFetch } = useArtistPortfolioItems({
+    userId,
+    enabled: Boolean(userId) && !freshEntry,
+  });
   const [pickedFiles, setPickedFiles] = useState<File[]>([]);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -78,53 +77,17 @@ function MakeupArtistPostPageInner() {
     message: string;
   } | null>(null);
 
-  const serverPortfolioKey = useMemo(
-    () => (user?.portfolioItems ?? []).map((i) => i.id).join("|"),
-    [user?.portfolioItems],
-  );
-
-  /**
-   * Đồng bộ draft từ hồ sơ khi đổi tài khoản (`username`), không hydrate lại sau khi chỉ portfolio đổi (sau "Lưu portfolio").
-   * `?fresh=1`: vào từ nút "Đăng bài" — form trống; sau `replace` URL bỏ query, bỏ qua một lần hydrate để không fill lại từ user.
-   */
+  /** `?fresh=1`: empty form — do not auto-load DB rows into draft. */
   useEffect(() => {
-    if (!user) {
-      setItems([]);
-      return;
-    }
-    if (freshEntry) {
-      skipHydrateAfterFreshRef.current = true;
-      draftDirtyRef.current = false;
-      setItems([]);
-      setPickedFiles([]);
-      setNotice(null);
-      if (fileRef.current) fileRef.current.value = "";
-      router.replace(AppRoutes.dashboardMakeupArtistPost, { scroll: false });
-      return;
-    }
-    if (skipHydrateAfterFreshRef.current) {
-      skipHydrateAfterFreshRef.current = false;
-      return;
-    }
-    if (draftDirtyRef.current) return;
-
-    const uid = user.id;
-    let cancelled = false;
-    void loadArtistPortfolioItemsForUser(uid).then((rows) => {
-      if (cancelled) return;
-      const next = rows.length > 0 ? rows : getStablePortfolioItems(user);
-      console.log("[PORTFOLIO DEBUG] state length", next.length);
-      setItems(next);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [user, user?.id, user?.username, serverPortfolioKey, freshEntry, router]);
-
-  useEffect(() => {
-    console.log("[PORTFOLIO DEBUG] rendering ids", items.map((x) => x.id));
-    console.log("[PORTFOLIO DEBUG] state length", items.length);
-  }, [items]);
+    if (!user || !freshEntry) return;
+    draftDirtyRef.current = false;
+    setItems([]);
+    markAccountLoadedWithoutFetch();
+    setPickedFiles([]);
+    setNotice(null);
+    if (fileRef.current) fileRef.current.value = "";
+    router.replace(AppRoutes.dashboardMakeupArtistPost, { scroll: false });
+  }, [user, freshEntry, router, setItems, markAccountLoadedWithoutFetch]);
 
   const imageItems = useMemo(() => items.filter((i) => i.kind === "image"), [items]);
   const videoItems = useMemo(() => items.filter((i) => i.kind === "video"), [items]);
@@ -270,11 +233,7 @@ function MakeupArtistPostPageInner() {
           return merged;
         });
 
-        const rows = await loadArtistPortfolioItemsForUser(userId);
-        if (rows.length > 0) {
-          setItems(rows);
-          console.log("[PORTFOLIO DEBUG] state length", rows.length);
-        }
+        await reloadFromDb();
         await refreshUser();
       }
       setPickedFiles([]);
@@ -324,9 +283,7 @@ function MakeupArtistPostPageInner() {
       if (result.ok) {
         draftDirtyRef.current = false;
         await refreshUser();
-        const savedRows = await loadArtistPortfolioItemsForUser(userId);
-        setItems(savedRows.length > 0 ? savedRows : prepared);
-        console.log("[PORTFOLIO DEBUG] state length", savedRows.length || prepared.length);
+        await reloadFromDb();
         setToast({ type: "success", message: t("dashboard.artistPostPage.saveSuccess") });
         setNotice(null);
         setPickedFiles([]);
@@ -409,6 +366,9 @@ function MakeupArtistPostPageInner() {
 
           <form className="mt-10 space-y-8" onSubmit={handleSave}>
             <div>
+              <p className="text-xs text-gray-400" aria-live="polite">
+                Portfolio items: {items.length}
+              </p>
               <h3 className="text-sm font-semibold text-black">{t("dashboard.artistPostPage.currentMedia")}</h3>
               <p className="mt-2 text-sm leading-relaxed text-gray-700">{t("dashboard.artistPostPage.classificationIntro")}</p>
 

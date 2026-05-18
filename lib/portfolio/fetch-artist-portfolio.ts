@@ -10,6 +10,6 @@ export async function loadArtistPortfolioItemsForUser(
 ): Promise<PortfolioItem[]> {
   const sb = supabase ?? getSupabaseBrowserClient();
   const rows = await fetchArtistPortfolioItemsForUser(sb, userId);
-  console.log("[PORTFOLIO DEBUG] fetched rows", rows);
+  console.log("[TRACE] fetched", rows.length, rows);
   return rows;
 }
