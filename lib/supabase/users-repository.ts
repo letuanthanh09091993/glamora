@@ -70,7 +70,7 @@ export type UserDbRow = {
   email_verified_at?: string | null;
   last_login_at?: string | null;
   profiles: ProfileRow | ProfileRow[] | null;
-  artist_portfolios?: PortfolioDbRow[] | null;
+  artist_portfolios?: PortfolioDbRow[] | PortfolioDbRow | null;
 };
 
 function asStringArray(v: unknown): string[] | undefined {
@@ -98,6 +98,40 @@ function asPortfolioItems(v: unknown): PortfolioItem[] | undefined {
   return out.length ? out : undefined;
 }
 
+/** PostgREST may return one related row as an object instead of an array. */
+function normalizeArtistPortfolioRows(
+  raw: PortfolioDbRow[] | PortfolioDbRow | null | undefined,
+): PortfolioDbRow[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw;
+  return [raw];
+}
+
+export async function fetchArtistPortfolioItemsForUser(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<PortfolioItem[]> {
+  const { data, error } = await supabase
+    .from("artist_portfolios")
+    .select("id, url, kind, album, style_tag, package_name, sort_order, created_at")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[PORTFOLIO DEBUG] fetched rows error", error);
+    return [];
+  }
+
+  const rows = (data ?? []) as PortfolioDbRow[];
+  const items = portfolioRowsToItems(rows);
+  console.log(
+    "[PORTFOLIO DEBUG] fetched rows",
+    items.length,
+    items.map((i) => i.id),
+  );
+  return items;
+}
+
 function portfolioRowsToItems(rows: PortfolioDbRow[]): PortfolioItem[] {
   return [...rows]
     .sort((a, b) => {
@@ -118,10 +152,8 @@ function portfolioRowsToItems(rows: PortfolioDbRow[]): PortfolioItem[] {
 
 export function mapUserDbRowToAccount(row: UserDbRow): UserAccount {
   const p = Array.isArray(row.profiles) ? row.profiles[0] ?? null : row.profiles;
-  const fromTable =
-    row.artist_portfolios && row.artist_portfolios.length > 0
-      ? portfolioRowsToItems(row.artist_portfolios)
-      : undefined;
+  const embeddedRows = normalizeArtistPortfolioRows(row.artist_portfolios);
+  const fromTable = embeddedRows.length > 0 ? portfolioRowsToItems(embeddedRows) : undefined;
   const fromJson = asPortfolioItems(p?.portfolio_items);
   const portfolioItems = fromTable?.length ? fromTable : fromJson;
   if (portfolioItems?.length) {
@@ -293,12 +325,17 @@ export async function fetchUserAccountById(
   }
 
   const full = mapUserDbRowToAccount(data as UserDbRow);
-  const count = full.portfolioItems?.length ?? 0;
-  const ids = full.portfolioItems?.map((i) => i.id) ?? [];
-  console.log("[PORTFOLIO DEBUG] fetched count", count);
-  console.log("[PORTFOLIO DEBUG] fetched ids", ids);
+  const fromTable = await fetchArtistPortfolioItemsForUser(supabase, userId);
+  const portfolioItems =
+    fromTable.length > 0
+      ? fromTable
+      : full.portfolioItems?.length
+        ? full.portfolioItems
+        : undefined;
+  console.log("[PORTFOLIO DEBUG] state length", portfolioItems?.length ?? 0);
   return {
     ...full,
+    portfolioItems,
     role: principal.role,
     accountStatus: principal.accountStatus,
   };
@@ -314,7 +351,12 @@ export async function fetchUserByUsername(
     .ilike("username", username.trim())
     .maybeSingle();
   if (error || !data) return null;
-  return mapUserDbRowToAccount(data as UserDbRow);
+  const account = mapUserDbRowToAccount(data as UserDbRow);
+  const fromTable = await fetchArtistPortfolioItemsForUser(supabase, account.id);
+  if (fromTable.length > 0) {
+    return { ...account, portfolioItems: fromTable };
+  }
+  return account;
 }
 
 function logPublicArtistDiscovery(stage: string, payload: Record<string, unknown>) {

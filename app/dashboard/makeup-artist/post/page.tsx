@@ -27,6 +27,7 @@ import {
   uploadPortfolioImageViaApi,
   uploadPortfolioVideoViaApi,
 } from "@/lib/portfolio/portfolio-upload-client";
+import { loadArtistPortfolioItemsForUser } from "@/lib/portfolio/fetch-artist-portfolio";
 import { normalizeServicePackages } from "@/lib/service-packages";
 
 /** Tổng số ảnh + video trong portfolio. */
@@ -107,14 +108,22 @@ function MakeupArtistPostPageInner() {
     }
     if (draftDirtyRef.current) return;
 
-    const stable = getStablePortfolioItems(user);
-    console.log("[PORTFOLIO DEBUG] fetched count", stable.length);
-    console.log("[PORTFOLIO DEBUG] fetched ids", stable.map((i) => i.id));
-    setItems(stable);
-  }, [user?.id, user?.username, serverPortfolioKey, freshEntry, router]);
+    const uid = user.id;
+    let cancelled = false;
+    void loadArtistPortfolioItemsForUser(uid).then((rows) => {
+      if (cancelled) return;
+      const next = rows.length > 0 ? rows : getStablePortfolioItems(user);
+      console.log("[PORTFOLIO DEBUG] state length", next.length);
+      setItems(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, user?.id, user?.username, serverPortfolioKey, freshEntry, router]);
 
   useEffect(() => {
-    console.log("[PORTFOLIO DEBUG] render items", items.length, items.map((i) => i.id));
+    console.log("[PORTFOLIO DEBUG] rendering ids", items.map((x) => x.id));
+    console.log("[PORTFOLIO DEBUG] state length", items.length);
   }, [items]);
 
   const imageItems = useMemo(() => items.filter((i) => i.kind === "image"), [items]);
@@ -258,9 +267,14 @@ function MakeupArtistPostPageInner() {
             });
             return prev;
           }
-          console.log("[PORTFOLIO DEBUG] list count after upload", merged.length);
           return merged;
         });
+
+        const rows = await loadArtistPortfolioItemsForUser(userId);
+        if (rows.length > 0) {
+          setItems(rows);
+          console.log("[PORTFOLIO DEBUG] state length", rows.length);
+        }
         await refreshUser();
       }
       setPickedFiles([]);
@@ -309,9 +323,10 @@ function MakeupArtistPostPageInner() {
 
       if (result.ok) {
         draftDirtyRef.current = false;
-        setItems(prepared);
-        console.log("[PORTFOLIO DEBUG] saved count", prepared.length);
         await refreshUser();
+        const savedRows = await loadArtistPortfolioItemsForUser(userId);
+        setItems(savedRows.length > 0 ? savedRows : prepared);
+        console.log("[PORTFOLIO DEBUG] state length", savedRows.length || prepared.length);
         setToast({ type: "success", message: t("dashboard.artistPostPage.saveSuccess") });
         setNotice(null);
         setPickedFiles([]);

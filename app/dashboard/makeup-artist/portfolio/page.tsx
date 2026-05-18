@@ -18,6 +18,7 @@ import {
   itemMatchesFilter,
   uniqueNonEmptyStrings,
 } from "@/lib/portfolio-media";
+import { loadArtistPortfolioItemsForUser } from "@/lib/portfolio/fetch-artist-portfolio";
 import { normalizeServicePackages } from "@/lib/service-packages";
 
 export default function ArtistPortfolioPreviewPage() {
@@ -34,14 +35,22 @@ export default function ArtistPortfolioPreviewPage() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
-    if (!user) return;
-    const stable = getStablePortfolioItems(user);
-    console.log("[PORTFOLIO DEBUG] fetched count", stable.length);
-    setItems(stable);
-  }, [user]);
+    if (!user?.id) return;
+    let cancelled = false;
+    void loadArtistPortfolioItemsForUser(user.id).then((rows) => {
+      if (cancelled) return;
+      const next = rows.length > 0 ? rows : getStablePortfolioItems(user);
+      console.log("[PORTFOLIO DEBUG] state length", next.length);
+      setItems(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, user?.id]);
 
   useEffect(() => {
-    console.log("[PORTFOLIO DEBUG] render items", items.length, items.map((i) => i.id));
+    console.log("[PORTFOLIO DEBUG] rendering ids", items.map((x) => x.id));
+    console.log("[PORTFOLIO DEBUG] state length", items.length);
   }, [items]);
 
   useEffect(() => {

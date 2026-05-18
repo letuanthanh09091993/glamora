@@ -39,10 +39,15 @@ export function syncPortfolioItemsWithUrls(
 }
 
 export function getStablePortfolioItems(user: UserAccount): PortfolioItem[] {
-  if (user.portfolioItems && user.portfolioItems.length > 0) {
-    return [...user.portfolioItems];
-  }
-  return syncPortfolioItemsWithUrls(user, user.portfolioImageUrls ?? [], user.portfolioVideoUrls ?? []);
+  const fromItems = user.portfolioItems ?? [];
+  const fromUrls = syncPortfolioItemsWithUrls(
+    user,
+    user.portfolioImageUrls ?? [],
+    user.portfolioVideoUrls ?? [],
+  );
+  if (fromItems.length === 0) return fromUrls;
+  if (fromUrls.length === 0) return [...fromItems];
+  return mergePortfolioItemsUnique(fromItems, fromUrls);
 }
 
 /** Merge lists; first list wins order; dedupe by id and url. */
