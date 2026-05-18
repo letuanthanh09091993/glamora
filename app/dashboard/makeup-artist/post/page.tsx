@@ -9,33 +9,45 @@ import { useAuth } from "@/components/providers/auth-provider";
 import { PortfolioVideoPreview } from "@/components/portfolio/portfolio-video-preview";
 import { AppButton } from "@/components/ui/app-button";
 import { Notice } from "@/components/ui/notice";
+import { PortfolioMediaPreviewCard } from "@/components/upload/portfolio-media-preview-card";
+import { UploadFeedbackToast } from "@/components/upload/upload-feedback-toast";
+import { UploadZone } from "@/components/upload/upload-zone";
+import { glamora } from "@/lib/ui/design-tokens";
 import type { PortfolioItem } from "@/lib/auth-types";
 import { AppRoutes } from "@/lib/app-routes";
 import { getStablePortfolioItems, makeStableItemId, uniqueNonEmptyStrings } from "@/lib/portfolio-media";
+import { MAX_PORTFOLIO_VIDEO_BYTES, portfolioItemsToUrlLists } from "@/lib/portfolio/portfolio-media-upload";
+import {
+  mapPortfolioApiError,
+  preparePortfolioItemsForSaveViaApi,
+  uploadPortfolioImageViaApi,
+  uploadPortfolioVideoViaApi,
+} from "@/lib/portfolio/portfolio-upload-client";
 import { normalizeServicePackages } from "@/lib/service-packages";
 
-/** Tổng số ảnh + video trong portfolio (demo). */
+/** Tổng số ảnh + video trong portfolio. */
 const MAX_PORTFOLIO_ITEMS = 40;
-/** Giới hạn chuỗi base64 để tránh tràn localStorage / trình duyệt. */
-const MAX_DATA_URL_CHARS = 10_000_000;
-/** Video file — đọc nguyên file base64; giới hạn dung lượng nguồn. */
-const MAX_VIDEO_FILE_BYTES = 28 * 1024 * 1024;
-
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 /** Khung beauty chuẩn portrait 4:5, crop giữ trọng tâm — không resize/chất lượng ảnh gốc khi lưu. */
 function BeautyStillPreview({ src }: { src: string }) {
+  const [loaded, setLoaded] = useState(false);
+
   return (
     <div className="relative mx-auto w-full max-w-[260px] overflow-hidden rounded-2xl bg-neutral-100 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)] ring-1 ring-black/10">
-      <div className="aspect-[4/5] w-full overflow-hidden bg-neutral-50">
-        <img src={src} alt="" className="h-full w-full object-cover object-center" loading="lazy" />
+      <div className="relative aspect-[4/5] w-full overflow-hidden bg-neutral-50">
+        {!loaded ? (
+          <div
+            className="absolute inset-0 animate-pulse bg-gradient-to-br from-[var(--glamora-rose-soft)] via-white to-neutral-100"
+            aria-hidden
+          />
+        ) : null}
+        <img
+          src={src}
+          alt=""
+          className={`h-full w-full object-cover object-center transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+        />
       </div>
     </div>
   );
@@ -43,7 +55,7 @@ function BeautyStillPreview({ src }: { src: string }) {
 
 function MakeupArtistPostPageInner() {
   const { t } = useLanguage();
-  const { user, updateProfile } = useAuth();
+  const { user, authUser, updateProfile, refreshUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const freshEntry = searchParams.get("fresh") === "1";
@@ -54,6 +66,11 @@ function MakeupArtistPostPageInner() {
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [toast, setToast] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   /**
    * Đồng bộ draft từ hồ sơ khi đổi tài khoản (`username`), không hydrate lại sau khi chỉ portfolio đổi (sau "Lưu portfolio").
@@ -110,6 +127,48 @@ function MakeupArtistPostPageInner() {
     setItems((prev) => prev.filter((it) => it.id !== id));
   }
 
+  function renderClassificationMeta(item: PortfolioItem) {
+    return (
+      <div className="grid min-w-0 gap-3 md:grid-cols-3">
+        <label className="block text-xs font-semibold text-gray-600">
+          {t("dashboard.portfolioPreviewPage.colAlbum")}
+          <input
+            value={item.album ?? ""}
+            onChange={(e) => patchItem(item.id, { album: e.target.value })}
+            list="post-page-album-suggestions"
+            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+            placeholder="—"
+          />
+        </label>
+        <label className="block text-xs font-semibold text-gray-600">
+          {t("dashboard.portfolioPreviewPage.colStyle")}
+          <input
+            value={item.styleTag ?? ""}
+            onChange={(e) => patchItem(item.id, { styleTag: e.target.value })}
+            list="post-page-style-suggestions"
+            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+            placeholder="—"
+          />
+        </label>
+        <label className="block text-xs font-semibold text-gray-600">
+          {t("dashboard.portfolioPreviewPage.colPackage")}
+          <select
+            value={item.packageName ?? ""}
+            onChange={(e) => patchItem(item.id, { packageName: e.target.value || undefined })}
+            className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
+          >
+            <option value="">—</option>
+            {packageNameOptions.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    );
+  }
+
   function onFileInputChange(files: FileList | null) {
     if (!files?.length) {
       setPickedFiles([]);
@@ -120,17 +179,30 @@ function MakeupArtistPostPageInner() {
   }
 
   async function handleUploadFromPicker() {
-    if (!pickedFiles.length) return;
+    if (!pickedFiles.length || uploading) return;
+    const userId = user?.id ?? authUser?.id;
+    if (!userId) {
+      setNotice({ type: "error", message: t("authMessages.noAuthenticatedUser") });
+      return;
+    }
+
     setNotice(null);
+    setToast(null);
     setUploading(true);
+    setUploadProgress(0);
 
     const imgs = items.filter((i) => i.kind === "image");
     const vids = items.filter((i) => i.kind === "video");
     let nextImgs = [...imgs];
     let nextVids = [...vids];
+    let added = 0;
+    const files = [...pickedFiles];
 
     try {
-      for (const file of pickedFiles) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]!;
+        setUploadProgress(Math.round(((i + 0.5) / files.length) * 100));
+
         const total = nextImgs.length + nextVids.length;
         if (total >= MAX_PORTFOLIO_ITEMS) {
           setNotice({
@@ -147,64 +219,97 @@ function MakeupArtistPostPageInner() {
           continue;
         }
 
-        if (isVideo && file.size > MAX_VIDEO_FILE_BYTES) {
+        if (isVideo && file.size > MAX_PORTFOLIO_VIDEO_BYTES) {
           setNotice({ type: "error", message: t("dashboard.artistPostPage.videoFileTooLarge") });
           continue;
         }
 
         try {
-          const dataUrl = await readFileAsDataUrl(file);
-          if (dataUrl.length > MAX_DATA_URL_CHARS) {
-            setNotice({ type: "error", message: t("dashboard.artistPostPage.imageTooLarge") });
-            continue;
-          }
+          const url = isImage
+            ? await uploadPortfolioImageViaApi(userId, file)
+            : await uploadPortfolioVideoViaApi(userId, file);
+          const kind = isImage ? "image" : "video";
+          const entry: PortfolioItem = {
+            id: makeStableItemId(url, kind),
+            url,
+            kind,
+          };
 
-          if (isImage) {
-            nextImgs.push({
-              id: makeStableItemId(dataUrl, "image"),
-              url: dataUrl,
-              kind: "image",
-            });
-          } else {
-            nextVids.push({
-              id: makeStableItemId(dataUrl, "video"),
-              url: dataUrl,
-              kind: "video",
-            });
-          }
-        } catch {
-          setNotice({ type: "error", message: t("dashboard.artistPostPage.imageTooLarge") });
+          if (isImage) nextImgs.push(entry);
+          else nextVids.push(entry);
+          added += 1;
+        } catch (err) {
+          console.error("[portfolio upload]", err);
+          const key = mapPortfolioApiError(err);
+          setNotice({ type: "error", message: t(key) });
         }
       }
 
       setItems([...nextImgs, ...nextVids]);
       setPickedFiles([]);
       if (fileRef.current) fileRef.current.value = "";
+
+      setUploadProgress(100);
+      if (added > 0) {
+        setToast({
+          type: "success",
+          message: t("dashboard.artistPostPage.uploadSuccess").replace("{count}", String(added)),
+        });
+      }
+    } catch (err) {
+      console.error("[portfolio upload]", err);
+      setToast({ type: "error", message: t(mapPortfolioApiError(err)) });
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   }
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
+    if (loading || uploading) return;
+    const userId = user?.id ?? authUser?.id;
+    if (!userId) {
+      setNotice({ type: "error", message: t("authMessages.noAuthenticatedUser") });
+      return;
+    }
+
     setLoading(true);
     setNotice(null);
-    const images = items.filter((i) => i.kind === "image").map((i) => i.url);
-    const videos = items.filter((i) => i.kind === "video").map((i) => i.url);
-    const result = await updateProfile({
-      portfolioImageUrls: images,
-      portfolioVideoUrls: videos,
-      portfolioItems: items,
-    });
-    setLoading(false);
-    setNotice({
-      type: result.ok ? "success" : "error",
-      message: t(result.messageKey),
-    });
-    if (result.ok) {
-      setItems([]);
-      setPickedFiles([]);
-      if (fileRef.current) fileRef.current.value = "";
+    setToast(null);
+
+    try {
+      const prepared = await preparePortfolioItemsForSaveViaApi(items, (index, total) => {
+        setUploadProgress(Math.round(((index + 0.5) / Math.max(total, 1)) * 100));
+      });
+      const { images, videos } = portfolioItemsToUrlLists(prepared);
+
+      const result = await updateProfile({
+        portfolioImageUrls: images,
+        portfolioVideoUrls: videos,
+        portfolioItems: prepared,
+      });
+
+      if (result.ok) {
+        await refreshUser();
+        setToast({ type: "success", message: t("dashboard.artistPostPage.saveSuccess") });
+        setNotice(null);
+        setItems([]);
+        setPickedFiles([]);
+        if (fileRef.current) fileRef.current.value = "";
+      } else {
+        const msg = t(result.messageKey);
+        setNotice({ type: "error", message: msg });
+        setToast({ type: "error", message: msg });
+      }
+    } catch (err) {
+      console.error("[portfolio save]", err);
+      const msg = t(mapPortfolioApiError(err));
+      setNotice({ type: "error", message: msg });
+      setToast({ type: "error", message: msg });
+    } finally {
+      setLoading(false);
+      setUploadProgress(null);
     }
   }
 
@@ -213,14 +318,30 @@ function MakeupArtistPostPageInner() {
       ? t("dashboard.artistPostPage.filesPicked").replace("{count}", String(pickedFiles.length))
       : t("dashboard.artistPostPage.filesPickedNone");
 
+  const uploadBusyLabel =
+    uploadProgress != null && uploadProgress < 70
+      ? t("dashboard.artistPostPage.uploadReading")
+      : t("dashboard.artistPostPage.uploadProcessing");
+
   return (
           <DashboardShell title={t("dashboard.artistPostPage.title")} hideProfileCard>
-        <div className="mb-6 rounded-3xl border border-black/10 bg-white p-6 shadow-sm sm:p-8">
-          <p className="text-sm text-gray-600">{t("dashboard.artistPostPage.subtitle")}</p>
+        <UploadFeedbackToast
+          open={Boolean(toast)}
+          type={toast?.type ?? "info"}
+          message={toast?.message ?? ""}
+          onClose={() => setToast(null)}
+        />
+        <div className={`mb-6 ${glamora.cardElevated} sm:p-8`}>
+          <p className={glamora.subtitle}>{t("dashboard.artistPostPage.subtitle")}</p>
           <p className="mt-2 text-xs text-gray-500">{t("dashboard.artistPostPage.hint")}</p>
 
-          <div className="mt-8 rounded-2xl border border-dashed border-black/15 bg-[#fdf8f6] p-6">
-            <p className="text-sm font-semibold text-black">{t("dashboard.artistPostPage.uploadZoneTitle")}</p>
+          <UploadZone
+            title={t("dashboard.artistPostPage.uploadZoneTitle")}
+            busy={uploading}
+            progress={uploadProgress}
+            progressLabel={t("dashboard.artistPostPage.uploadProgressLabel")}
+            busyLabel={uploadBusyLabel}
+          >
             <input
               ref={fileRef}
               type="file"
@@ -231,15 +352,26 @@ function MakeupArtistPostPageInner() {
               onChange={(e) => onFileInputChange(e.target.files)}
             />
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <AppButton type="button" variant="secondary" onClick={() => fileRef.current?.click()}>
+              <AppButton
+                type="button"
+                variant="secondary"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
                 {t("dashboard.artistPostPage.chooseFiles")}
               </AppButton>
-              <AppButton type="button" loading={uploading} disabled={pickedFiles.length === 0} onClick={() => void handleUploadFromPicker()}>
+              <AppButton
+                type="button"
+                loading={uploading}
+                loadingLabel={uploadBusyLabel}
+                disabled={pickedFiles.length === 0 || uploading}
+                onClick={() => void handleUploadFromPicker()}
+              >
                 {t("dashboard.artistPostPage.uploadAdd")}
               </AppButton>
             </div>
             <p className="mt-3 text-xs text-gray-600">{pickedLabel}</p>
-          </div>
+          </UploadZone>
 
           <form className="mt-10 space-y-8" onSubmit={handleSave}>
             <div>
@@ -254,60 +386,13 @@ function MakeupArtistPostPageInner() {
                     <div>
                       <ul className="space-y-8">
                         {imageItems.map((item) => (
-                          <li
+                          <PortfolioMediaPreviewCard
                             key={item.id}
-                            className="rounded-3xl border border-black/10 bg-[#fdf8f6] p-4 sm:flex sm:gap-6 sm:p-5"
-                          >
-                            <div className="relative mx-auto shrink-0 sm:mx-0">
-                              <BeautyStillPreview src={item.url} />
-                              <button
-                                type="button"
-                                className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[10px] font-semibold text-white"
-                                onClick={() => removeItem(item.id)}
-                              >
-                                {t("dashboard.artistPostPage.remove")}
-                              </button>
-                            </div>
-                            <div className="mt-4 grid min-w-0 flex-1 gap-3 sm:mt-0 md:grid-cols-3">
-                              <label className="block text-xs font-semibold text-gray-600">
-                                {t("dashboard.portfolioPreviewPage.colAlbum")}
-                                <input
-                                  value={item.album ?? ""}
-                                  onChange={(e) => patchItem(item.id, { album: e.target.value })}
-                                  list="post-page-album-suggestions"
-                                  className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
-                                  placeholder="—"
-                                />
-                              </label>
-                              <label className="block text-xs font-semibold text-gray-600">
-                                {t("dashboard.portfolioPreviewPage.colStyle")}
-                                <input
-                                  value={item.styleTag ?? ""}
-                                  onChange={(e) => patchItem(item.id, { styleTag: e.target.value })}
-                                  list="post-page-style-suggestions"
-                                  className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
-                                  placeholder="—"
-                                />
-                              </label>
-                              <label className="block text-xs font-semibold text-gray-600">
-                                {t("dashboard.portfolioPreviewPage.colPackage")}
-                                <select
-                                  value={item.packageName ?? ""}
-                                  onChange={(e) =>
-                                    patchItem(item.id, { packageName: e.target.value || undefined })
-                                  }
-                                  className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
-                                >
-                                  <option value="">—</option>
-                                  {packageNameOptions.map((p) => (
-                                    <option key={p} value={p}>
-                                      {p}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            </div>
-                          </li>
+                            preview={<BeautyStillPreview src={item.url} />}
+                            onRemove={() => removeItem(item.id)}
+                            removeLabel={t("dashboard.artistPostPage.remove")}
+                            meta={renderClassificationMeta(item)}
+                          />
                         ))}
                       </ul>
                     </div>
@@ -317,60 +402,18 @@ function MakeupArtistPostPageInner() {
                     <div>
                       <ul className="space-y-8">
                         {videoItems.map((item) => (
-                          <li
+                          <PortfolioMediaPreviewCard
                             key={item.id}
-                            className="rounded-3xl border border-black/10 bg-[#fdf8f6] p-4 sm:flex sm:gap-6 sm:p-5"
-                          >
-                            <div className="w-full min-w-0 shrink-0 sm:max-w-md">
-                              <PortfolioVideoPreview url={item.url} />
-                              <button
-                                type="button"
-                                className="mt-3 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-black/5 sm:w-auto"
-                                onClick={() => removeItem(item.id)}
-                              >
-                                {t("dashboard.artistPostPage.remove")}
-                              </button>
-                            </div>
-                            <div className="mt-4 grid min-w-0 flex-1 gap-3 sm:mt-0 md:grid-cols-3">
-                              <label className="block text-xs font-semibold text-gray-600">
-                                {t("dashboard.portfolioPreviewPage.colAlbum")}
-                                <input
-                                  value={item.album ?? ""}
-                                  onChange={(e) => patchItem(item.id, { album: e.target.value })}
-                                  list="post-page-album-suggestions"
-                                  className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
-                                  placeholder="—"
-                                />
-                              </label>
-                              <label className="block text-xs font-semibold text-gray-600">
-                                {t("dashboard.portfolioPreviewPage.colStyle")}
-                                <input
-                                  value={item.styleTag ?? ""}
-                                  onChange={(e) => patchItem(item.id, { styleTag: e.target.value })}
-                                  list="post-page-style-suggestions"
-                                  className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
-                                  placeholder="—"
-                                />
-                              </label>
-                              <label className="block text-xs font-semibold text-gray-600">
-                                {t("dashboard.portfolioPreviewPage.colPackage")}
-                                <select
-                                  value={item.packageName ?? ""}
-                                  onChange={(e) =>
-                                    patchItem(item.id, { packageName: e.target.value || undefined })
-                                  }
-                                  className="mt-1 w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-black outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100"
-                                >
-                                  <option value="">—</option>
-                                  {packageNameOptions.map((p) => (
-                                    <option key={p} value={p}>
-                                      {p}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-                            </div>
-                          </li>
+                            className="sm:items-start"
+                            preview={
+                              <div className="w-full min-w-0 sm:max-w-md">
+                                <PortfolioVideoPreview url={item.url} />
+                              </div>
+                            }
+                            onRemove={() => removeItem(item.id)}
+                            removeLabel={t("dashboard.artistPostPage.remove")}
+                            meta={renderClassificationMeta(item)}
+                          />
                         ))}
                       </ul>
                     </div>
@@ -393,7 +436,12 @@ function MakeupArtistPostPageInner() {
             {notice ? <Notice type={notice.type} message={notice.message} /> : null}
 
             <div className="flex flex-wrap gap-2">
-              <AppButton type="submit" loading={loading}>
+              <AppButton
+                type="submit"
+                loading={loading}
+                loadingLabel={t("dashboard.artistPostPage.savePublishing")}
+                disabled={loading || uploading}
+              >
                 {t("dashboard.artistPostPage.savePortfolio")}
               </AppButton>
               <Link

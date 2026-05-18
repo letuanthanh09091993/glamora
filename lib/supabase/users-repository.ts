@@ -570,13 +570,38 @@ export async function signInWithEmail(
   return { ok: true, messageKey: "authMessages.loginSuccess" };
 }
 
+function mapPortfolioSyncErrorCode(error: { code?: string; message?: string }): string {
+  if (error.code === "23505") return "authMessages.portfolioDuplicate";
+  if (error.code === "42501") return "authMessages.portfolioRlsDenied";
+  const msg = (error.message ?? "").toLowerCase();
+  if (msg.includes("row-level security")) return "authMessages.portfolioRlsDenied";
+  if (msg.includes("payload") || msg.includes("too large")) {
+    return "authMessages.portfolioPayloadTooLarge";
+  }
+  return "authMessages.portfolioSyncFailed";
+}
+
 export async function syncArtistPortfolioTable(
   supabase: SupabaseClient,
   userId: string,
   items: PortfolioItem[],
-): Promise<void> {
-  await supabase.from("artist_portfolios").delete().eq("user_id", userId);
-  if (!items.length) return;
+): Promise<{ ok: boolean; messageKey: string }> {
+  const { error: deleteError } = await supabase
+    .from("artist_portfolios")
+    .delete()
+    .eq("user_id", userId);
+
+  if (deleteError) {
+    console.error("[PORTFOLIO UPLOAD ERROR]", {
+      stage: "artist_portfolios.delete",
+      userId,
+      error: deleteError,
+    });
+    return { ok: false, messageKey: mapPortfolioSyncErrorCode(deleteError) };
+  }
+
+  if (!items.length) return { ok: true, messageKey: "authMessages.profileUpdated" };
+
   const rows = items.map((it, index) => ({
     user_id: userId,
     url: it.url,
@@ -586,8 +611,19 @@ export async function syncArtistPortfolioTable(
     package_name: it.packageName ?? null,
     sort_order: index,
   }));
-  const { error } = await supabase.from("artist_portfolios").insert(rows);
-  if (error) throw error;
+
+  const { error: insertError } = await supabase.from("artist_portfolios").insert(rows);
+  if (insertError) {
+    console.error("[PORTFOLIO UPLOAD ERROR]", {
+      stage: "artist_portfolios.insert",
+      userId,
+      rowCount: rows.length,
+      error: insertError,
+    });
+    return { ok: false, messageKey: mapPortfolioSyncErrorCode(insertError) };
+  }
+
+  return { ok: true, messageKey: "authMessages.profileUpdated" };
 }
 
 export async function updateAuthenticatedProfile(
@@ -654,13 +690,24 @@ export async function updateAuthenticatedProfile(
 
   if (Object.keys(profilePatch).length > 0) {
     const { error } = await supabase.from("profiles").update(profilePatch).eq("user_id", userId);
-    if (error) return { ok: false, messageKey: "authMessages.userNotFound" };
+    if (error) {
+      console.error("[PORTFOLIO UPLOAD ERROR]", {
+        stage: "profiles.update",
+        userId,
+        error,
+      });
+      if (error.code === "42501" || (error.message ?? "").includes("row-level security")) {
+        return { ok: false, messageKey: "authMessages.portfolioRlsDenied" };
+      }
+      return { ok: false, messageKey: "authMessages.profileUpdateFailed" };
+    }
   }
 
   if (partial.portfolioItems !== undefined) {
     const { data: urow } = await supabase.from("users").select("role").eq("id", userId).single();
     if (urow?.role === "makeup_artist") {
-      await syncArtistPortfolioTable(supabase, userId, partial.portfolioItems ?? []);
+      const sync = await syncArtistPortfolioTable(supabase, userId, partial.portfolioItems ?? []);
+      if (!sync.ok) return sync;
     }
   }
 

@@ -2,6 +2,7 @@
 
 import { ReactNode } from "react";
 import { useLanguage } from "@/components/providers/language-provider";
+import { UploadSpinner } from "@/components/upload/upload-spinner";
 import { buttonSizes } from "@/lib/ui/design-tokens";
 
 type AppButtonProps = {
@@ -10,6 +11,8 @@ type AppButtonProps = {
   variant?: "primary" | "secondary" | "ghost";
   size?: "sm" | "md" | "lg";
   loading?: boolean;
+  /** Shown while loading; falls back to common.pleaseWait */
+  loadingLabel?: ReactNode;
   disabled?: boolean;
   onClick?: () => void;
   className?: string;
@@ -29,6 +32,7 @@ export function AppButton({
   variant = "primary",
   size = "md",
   loading,
+  loadingLabel,
   disabled,
   onClick,
   className = "",
@@ -40,9 +44,17 @@ export function AppButton({
       type={type}
       onClick={onClick}
       disabled={loading || disabled}
-      className={`inline-flex items-center justify-center rounded-2xl font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-55 ${buttonSizes[size]} ${variantClass[variant]} ${className}`}
+      aria-busy={loading || undefined}
+      className={`inline-flex items-center justify-center gap-2 rounded-2xl font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-55 ${buttonSizes[size]} ${variantClass[variant]} ${className}`}
     >
-      {loading ? t("common.pleaseWait") : children}
+      {loading ? (
+        <>
+          <UploadSpinner className={size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4"} />
+          <span>{loadingLabel ?? t("common.pleaseWait")}</span>
+        </>
+      ) : (
+        children
+      )}
     </button>
   );
 }

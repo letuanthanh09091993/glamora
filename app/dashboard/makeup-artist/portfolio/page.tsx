@@ -8,6 +8,7 @@ import { useLanguage } from "@/components/providers/language-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { AppButton } from "@/components/ui/app-button";
 import { Notice } from "@/components/ui/notice";
+import { UploadFeedbackToast } from "@/components/upload/upload-feedback-toast";
 import type { PortfolioItem } from "@/lib/auth-types";
 import { AppRoutes } from "@/lib/app-routes";
 import {
@@ -30,6 +31,7 @@ export default function ArtistPortfolioPreviewPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -104,18 +106,32 @@ export default function ArtistPortfolioPreviewPage() {
 
     setDeleting(true);
     setNotice(null);
+    setToast(null);
+    const count = selectedIds.length;
     const images = nextItems.filter((i) => i.kind === "image").map((i) => i.url);
     const videos = nextItems.filter((i) => i.kind === "video").map((i) => i.url);
-    const result = await updateProfile({
-      portfolioItems: nextItems,
-      portfolioImageUrls: images,
-      portfolioVideoUrls: videos,
-    });
-    setDeleting(false);
-    setNotice({ type: result.ok ? "success" : "error", message: t(result.messageKey) });
-    if (result.ok) {
-      setItems(nextItems);
-      exitSelectMode();
+    try {
+      const result = await updateProfile({
+        portfolioItems: nextItems,
+        portfolioImageUrls: images,
+        portfolioVideoUrls: videos,
+      });
+      if (result.ok) {
+        setItems(nextItems);
+        exitSelectMode();
+        setToast({
+          type: "success",
+          message: t("dashboard.portfolioPreviewPage.deleteSuccess").replace("{count}", String(count)),
+        });
+        setNotice(null);
+      } else {
+        setNotice({ type: "error", message: t(result.messageKey) });
+        setToast({ type: "error", message: t("dashboard.portfolioPreviewPage.deleteFailed") });
+      }
+    } catch {
+      setToast({ type: "error", message: t("dashboard.portfolioPreviewPage.deleteFailed") });
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -174,6 +190,12 @@ export default function ArtistPortfolioPreviewPage() {
 
   return (
           <DashboardShell title={t("dashboard.portfolioPreviewPage.title")} hideProfileCard>
+        <UploadFeedbackToast
+          open={Boolean(toast)}
+          type={toast?.type ?? "info"}
+          message={toast?.message ?? ""}
+          onClose={() => setToast(null)}
+        />
         <div className="rounded-3xl border border-black/10 bg-white p-6 shadow-sm sm:p-8">
           <h2 className="text-lg font-semibold text-black">{t("dashboard.portfolioPreviewPage.albumViewTitle")}</h2>
           <p className="mt-1 text-sm leading-relaxed text-gray-600">
@@ -194,7 +216,8 @@ export default function ArtistPortfolioPreviewPage() {
                 size="sm"
                 variant="secondary"
                 loading={deleting}
-                disabled={!selectMode || selectedIds.length === 0}
+                loadingLabel={t("dashboard.portfolioPreviewPage.deleting")}
+                disabled={!selectMode || selectedIds.length === 0 || deleting}
                 onClick={() => void handleDeleteSelected()}
                 className="border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800"
               >
