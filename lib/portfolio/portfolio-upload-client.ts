@@ -51,7 +51,7 @@ async function postFile(
   }
 
   if (data.portfolioItem) {
-    console.log("[PORTFOLIO] uploaded row id", data.portfolioItem.id);
+    console.log("[PORTFOLIO DEBUG] inserted row", data.portfolioItem.id);
     return data.portfolioItem;
   }
 

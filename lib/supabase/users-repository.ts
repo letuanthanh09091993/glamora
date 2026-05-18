@@ -101,10 +101,10 @@ function asPortfolioItems(v: unknown): PortfolioItem[] | undefined {
 function portfolioRowsToItems(rows: PortfolioDbRow[]): PortfolioItem[] {
   return [...rows]
     .sort((a, b) => {
-      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
       const ta = a.created_at ? Date.parse(a.created_at) : 0;
       const tb = b.created_at ? Date.parse(b.created_at) : 0;
-      return tb - ta;
+      if (tb !== ta) return tb - ta;
+      return a.sort_order - b.sort_order;
     })
     .map((r) => ({
       id: r.id,
@@ -125,7 +125,8 @@ export function mapUserDbRowToAccount(row: UserDbRow): UserAccount {
   const fromJson = asPortfolioItems(p?.portfolio_items);
   const portfolioItems = fromTable?.length ? fromTable : fromJson;
   if (portfolioItems?.length) {
-    console.log("[PORTFOLIO] fetched ids", portfolioItems.map((i) => i.id));
+    console.log("[PORTFOLIO DEBUG] fetched count", portfolioItems.length);
+    console.log("[PORTFOLIO DEBUG] fetched ids", portfolioItems.map((i) => i.id));
   }
 
   const castingRaw = p?.casting_requests;
@@ -294,8 +295,8 @@ export async function fetchUserAccountById(
   const full = mapUserDbRowToAccount(data as UserDbRow);
   const count = full.portfolioItems?.length ?? 0;
   const ids = full.portfolioItems?.map((i) => i.id) ?? [];
-  console.log("[PORTFOLIO] fetched count", count);
-  console.log("[PORTFOLIO] fetched ids", ids);
+  console.log("[PORTFOLIO DEBUG] fetched count", count);
+  console.log("[PORTFOLIO DEBUG] fetched ids", ids);
   return {
     ...full,
     role: principal.role,
@@ -619,7 +620,7 @@ export async function appendArtistPortfolioMediaRow(
         .maybeSingle();
       if (existing) {
         const item = portfolioRowsToItems([existing as PortfolioDbRow])[0]!;
-        console.log("[PORTFOLIO] uploaded row id (existing)", item.id);
+        console.log("[PORTFOLIO DEBUG] inserted row (existing url)", item.id);
         return { ok: true, item };
       }
     }
@@ -632,7 +633,7 @@ export async function appendArtistPortfolioMediaRow(
   }
 
   const item = portfolioRowsToItems([data as PortfolioDbRow])[0]!;
-  console.log("[PORTFOLIO] uploaded row id", item.id);
+  console.log("[PORTFOLIO DEBUG] inserted row", item.id, item.url);
   return { ok: true, item };
 }
 
@@ -647,56 +648,110 @@ function mapPortfolioSyncErrorCode(error: { code?: string; message?: string }): 
   return "authMessages.portfolioSyncFailed";
 }
 
+/** Sync draft metadata to DB without wiping unrelated rows (no delete-all). */
 export async function syncArtistPortfolioTable(
   supabase: SupabaseClient,
   userId: string,
   items: PortfolioItem[],
 ): Promise<{ ok: boolean; messageKey: string }> {
-  const { error: deleteError } = await supabase
+  const { data: existing, error: fetchError } = await supabase
     .from("artist_portfolios")
-    .delete()
+    .select("id, url, kind, album, style_tag, package_name, sort_order, created_at")
     .eq("user_id", userId);
 
-  if (deleteError) {
+  if (fetchError) {
     console.error("[PORTFOLIO UPLOAD ERROR]", {
-      stage: "artist_portfolios.delete",
+      stage: "artist_portfolios.fetch",
       userId,
-      error: deleteError,
+      error: fetchError,
     });
-    return { ok: false, messageKey: mapPortfolioSyncErrorCode(deleteError) };
+    return { ok: false, messageKey: mapPortfolioSyncErrorCode(fetchError) };
   }
 
-  if (!items.length) return { ok: true, messageKey: "authMessages.profileUpdated" };
+  const existingRows = (existing ?? []) as PortfolioDbRow[];
+  const payloadUrls = new Set(items.map((it) => it.url));
+  const existingByUrl = new Map(existingRows.map((r) => [r.url, r]));
 
-  const rows = items.map((it, index) => ({
-    user_id: userId,
-    url: it.url,
-    kind: it.kind,
-    album: it.album ?? null,
-    style_tag: it.styleTag ?? null,
-    package_name: it.packageName ?? null,
-    sort_order: index,
-  }));
+  const idsToRemove = existingRows.filter((r) => !payloadUrls.has(r.url)).map((r) => r.id);
+  if (idsToRemove.length > 0) {
+    const { error: removeError } = await supabase
+      .from("artist_portfolios")
+      .delete()
+      .in("id", idsToRemove);
+    if (removeError) {
+      console.error("[PORTFOLIO UPLOAD ERROR]", {
+        stage: "artist_portfolios.delete_removed",
+        userId,
+        error: removeError,
+      });
+      return { ok: false, messageKey: mapPortfolioSyncErrorCode(removeError) };
+    }
+  }
 
-  const { data: inserted, error: insertError } = await supabase
-    .from("artist_portfolios")
-    .insert(rows)
-    .select("id");
-  if (insertError) {
-    console.error("[PORTFOLIO UPLOAD ERROR]", {
-      stage: "artist_portfolios.insert",
-      userId,
-      rowCount: rows.length,
-      error: insertError,
-    });
-    return { ok: false, messageKey: mapPortfolioSyncErrorCode(insertError) };
+  if (!items.length) {
+    console.log("[PORTFOLIO DEBUG] synced count", 0);
+    return { ok: true, messageKey: "authMessages.profileUpdated" };
+  }
+
+  const insertedIds: string[] = [];
+  const updatedIds: string[] = [];
+
+  for (let index = 0; index < items.length; index++) {
+    const it = items[index]!;
+    const ex = existingByUrl.get(it.url);
+    const meta = {
+      kind: it.kind,
+      album: it.album ?? null,
+      style_tag: it.styleTag ?? null,
+      package_name: it.packageName ?? null,
+      sort_order: index,
+    };
+
+    if (ex) {
+      const { error: updateError } = await supabase
+        .from("artist_portfolios")
+        .update(meta)
+        .eq("id", ex.id);
+      if (updateError) {
+        console.error("[PORTFOLIO UPLOAD ERROR]", {
+          stage: "artist_portfolios.update_meta",
+          userId,
+          id: ex.id,
+          error: updateError,
+        });
+        return { ok: false, messageKey: mapPortfolioSyncErrorCode(updateError) };
+      }
+      updatedIds.push(ex.id);
+    } else {
+      const { data: inserted, error: insertError } = await supabase
+        .from("artist_portfolios")
+        .insert({
+          user_id: userId,
+          url: it.url,
+          ...meta,
+        })
+        .select("id")
+        .single();
+      if (insertError) {
+        console.error("[PORTFOLIO UPLOAD ERROR]", {
+          stage: "artist_portfolios.insert",
+          userId,
+          url: it.url,
+          error: insertError,
+        });
+        return { ok: false, messageKey: mapPortfolioSyncErrorCode(insertError) };
+      }
+      insertedIds.push(inserted.id);
+    }
   }
 
   console.log(
-    "[PORTFOLIO] synced insert ids",
-    (inserted ?? []).map((r) => r.id),
-    "total",
-    rows.length,
+    "[PORTFOLIO DEBUG] synced insert ids",
+    insertedIds,
+    "updated",
+    updatedIds,
+    "payload",
+    items.length,
   );
 
   return { ok: true, messageKey: "authMessages.profileUpdated" };

@@ -35,8 +35,14 @@ export default function ArtistPortfolioPreviewPage() {
 
   useEffect(() => {
     if (!user) return;
-    setItems(getStablePortfolioItems(user));
+    const stable = getStablePortfolioItems(user);
+    console.log("[PORTFOLIO DEBUG] fetched count", stable.length);
+    setItems(stable);
   }, [user]);
+
+  useEffect(() => {
+    console.log("[PORTFOLIO DEBUG] render items", items.length, items.map((i) => i.id));
+  }, [items]);
 
   useEffect(() => {
     setSelectedIds((prev) => prev.filter((id) => items.some((i) => i.id === id)));

@@ -108,10 +108,14 @@ function MakeupArtistPostPageInner() {
     if (draftDirtyRef.current) return;
 
     const stable = getStablePortfolioItems(user);
-    console.log("[PORTFOLIO] fetched count", stable.length);
-    console.log("[PORTFOLIO] fetched ids", stable.map((i) => i.id));
+    console.log("[PORTFOLIO DEBUG] fetched count", stable.length);
+    console.log("[PORTFOLIO DEBUG] fetched ids", stable.map((i) => i.id));
     setItems(stable);
   }, [user?.id, user?.username, serverPortfolioKey, freshEntry, router]);
+
+  useEffect(() => {
+    console.log("[PORTFOLIO DEBUG] render items", items.length, items.map((i) => i.id));
+  }, [items]);
 
   const imageItems = useMemo(() => items.filter((i) => i.kind === "image"), [items]);
   const videoItems = useMemo(() => items.filter((i) => i.kind === "video"), [items]);
@@ -254,9 +258,10 @@ function MakeupArtistPostPageInner() {
             });
             return prev;
           }
-          console.log("[PORTFOLIO] list count after upload", merged.length);
+          console.log("[PORTFOLIO DEBUG] list count after upload", merged.length);
           return merged;
         });
+        await refreshUser();
       }
       setPickedFiles([]);
       if (fileRef.current) fileRef.current.value = "";
@@ -305,7 +310,7 @@ function MakeupArtistPostPageInner() {
       if (result.ok) {
         draftDirtyRef.current = false;
         setItems(prepared);
-        console.log("[PORTFOLIO] fetched count", prepared.length);
+        console.log("[PORTFOLIO DEBUG] saved count", prepared.length);
         await refreshUser();
         setToast({ type: "success", message: t("dashboard.artistPostPage.saveSuccess") });
         setNotice(null);

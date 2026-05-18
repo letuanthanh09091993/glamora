@@ -111,6 +111,8 @@ export async function POST(request: Request) {
       );
     }
 
+    console.log("[PORTFOLIO DEBUG] inserted row", appended.item.id, appended.item.url);
+
     return NextResponse.json({
       ok: true,
       url: publicUrl,
